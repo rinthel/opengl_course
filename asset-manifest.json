@@ -1,0 +1,23 @@
+{
+  "files": {
+    "main.css": "/opengl_course/static/css/main.ab7136cd.chunk.css",
+    "main.js": "/opengl_course/static/js/main.c652f979.chunk.js",
+    "main.js.map": "/opengl_course/static/js/main.c652f979.chunk.js.map",
+    "runtime-main.js": "/opengl_course/static/js/runtime-main.2dcda591.js",
+    "runtime-main.js.map": "/opengl_course/static/js/runtime-main.2dcda591.js.map",
+    "static/js/2.ecd234db.chunk.js": "/opengl_course/static/js/2.ecd234db.chunk.js",
+    "static/js/2.ecd234db.chunk.js.map": "/opengl_course/static/js/2.ecd234db.chunk.js.map",
+    "static/js/3.8a188064.chunk.js": "/opengl_course/static/js/3.8a188064.chunk.js",
+    "static/js/3.8a188064.chunk.js.map": "/opengl_course/static/js/3.8a188064.chunk.js.map",
+    "index.html": "/opengl_course/index.html",
+    "static/css/main.ab7136cd.chunk.css.map": "/opengl_course/static/css/main.ab7136cd.chunk.css.map",
+    "static/js/2.ecd234db.chunk.js.LICENSE.txt": "/opengl_course/static/js/2.ecd234db.chunk.js.LICENSE.txt",
+    "static/media/logo.6ce24c58.svg": "/opengl_course/static/media/logo.6ce24c58.svg"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.2dcda591.js",
+    "static/js/2.ecd234db.chunk.js",
+    "static/css/main.ab7136cd.chunk.css",
+    "static/js/main.c652f979.chunk.js"
+  ]
+}
