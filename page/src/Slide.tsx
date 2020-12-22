@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Link } from "react-router-dom";
+import { Link, useRouteMatch } from "react-router-dom";
 
 // @ts-ignore
 import Reveal from 'reveal.js';
@@ -8,7 +8,16 @@ import Markdown from 'reveal.js/plugin/markdown/markdown.esm.js';
 import 'reveal.js/dist/reveal.css';
 import 'reveal.js/dist/theme/black.css';
 
-function Slide({dataPath = "/note/01_introduction.md"}) {
+function Slide() {
+  type Params = {
+    id: string
+  };
+  const match = useRouteMatch();
+  const param = match.params as Params;
+  const id = param.id;
+  const dataPath = `/note/${id}.md`;
+
+  console.log("match:", match);
   const deckRef = useRef(null);
   useEffect(() => {
       if (deckRef.current)

@@ -49,17 +49,39 @@ Computer Graphics with OpenGL
 
 ---
 
-## Syllabus
+## Evaluation
 
-1. Introduction
-2. Computer graphics + OpenGL
-3. Environment
-4. Graphics pipeline and shader
+- 4 small assignments (10% for each)
+- Mid-term project (25%)
+- Final project (35%)
 
 ---
 
 ## Syllabus
 
-6. Geometric transformation
-7. Draw Triangle + ImGui
-8. More on Shader
+1. Introduction
+2. Computer graphics + OpenGL
+3. Development environment
+4. Graphics pipeline and shader
+5. Vectors Matrices, and Uniform Variables
+
+---
+
+## Syllabus
+
+6. Geometric transformation / Projection
+7. Object loading
+8. Camera, keyboard/mouse interaction
+9. Texture
+10. Lighting
+
+---
+
+## Syllabus
+
+11. ImGui
+12. Shadow
+13. Skybox + Environment map
+14. Normal shader
+15. Physics based shader
+
