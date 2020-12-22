@@ -1,5 +1,6 @@
 {
-  "name": "page",
+  "name": "opengl-course-page",
+  "description": "rinthel's opengl course page",
   "version": "0.1.0",
   "private": true,
   "homepage": "https://rinthel.github.io/opengl_course",
@@ -11,9 +12,12 @@
     "@types/node": "^12.0.0",
     "@types/react": "^16.9.53",
     "@types/react-dom": "^16.9.8",
+    "@types/react-router-dom": "^5.1.6",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
+    "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.1",
+    "reveal.js": "^4.1.0",
     "typescript": "^4.0.3",
     "web-vitals": "^0.2.4"
   },
@@ -44,6 +48,11 @@
     ]
   },
   "devDependencies": {
+    "@types/jest": "^26.0.15",
+    "@types/node": "^12.0.0",
+    "@types/react": "^16.9.53",
+    "@types/react-dom": "^16.9.8",
+    "@types/react-router-dom": "^5.1.6",
     "gh-pages": "^3.1.0"
   }
 }
