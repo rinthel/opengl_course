@@ -1,4 +1,6 @@
-# 개발 환경
+# Development Environment
+
+Computer Graphics with OpenGL
 
 ---
 
@@ -132,6 +134,7 @@ cmake_minimum_required(VERSION 3.10)
 set(PROJECT_NAME cmake_project_example)
 set(CMAKE_CXX_STANDARD 17)
 
+project(${PROJECT_NAME})
 add_executable(${PROJECT_NAME} src/main.cpp)
 ```
 
@@ -155,6 +158,10 @@ add_executable(${PROJECT_NAME} src/main.cpp)
 - 빌드: F7
 - 디버그 실행: ctrl+F5
 - Debug Console 화면에 `Hello, World!` 출력 확인
+
+```text
+Hello World!
+```
 
 ---
 
@@ -216,6 +223,17 @@ add_executable(${PROJECT_NAME} src/main.cpp)
 
 ---
 
+## git 용어 정리
+
+- repository: 저장소, 하나의 프로젝트
+- clone: 저장소 전체를 내려받기
+- commit: 코드 변경 내역 저장 단위
+  - commit hash: 각각의 commit 마다 매겨지는 고유 hash id 값
+- push: 변경 내역 업로드
+- pull: 변경 내역 다운로드
+
+---
+
 ## 일반적인 git 작업의 흐름
 
 - 코드 다운로드
@@ -224,9 +242,9 @@ add_executable(${PROJECT_NAME} src/main.cpp)
 - 브랜치 생성
 - 브랜치 체크아웃
 - 코드 작성
-- 코드 커밋 (commit = 저장)
-- 브랜치 푸시 (push = 업로드)
-- 브랜치 머지 (merge = 코드 합치기)
+- 코드 커밋
+- 브랜치 푸시
+- 브랜치 머지
 
 ---
 
@@ -261,3 +279,328 @@ build/
 > git commit -m first commit
 ```
 
+---
+
+## github
+
+- 가장 대표적인 git 호스팅 서비스
+  - git을 이용한 프로젝트 호스팅 기능
+  - issue / pull request 등 협업에 필요한 기능
+  - fork 기능: github에 올려진 프로젝트를 내 계정으로 복사해서 수정 가능
+  - public / private repository: 소스 코드를 공개하거나 나만 볼 수 있게 할 수 있음
+  - 수많은 오픈 소스 프로젝트들이 github을 중심으로 작업 / 배포되는 중
+- [github.com](https://github.com) 에서 계정부터 만들자
+
+---
+
+## github에서 repository 만들기
+
+- 우상단의 + 버튼을 클릭하고 `New repository` 선택
+- repository 이름 설정: `cmake_project_example`
+- Public / Private 선택
+- Create project 클릭하여 생성
+
+---
+
+## github에 프로젝트 올리기
+
+```console
+> git remote add origin \
+  https://github.com/${계정명}/cmake_project_example.git
+> git branch -M main
+> git push -u origin main
+```
+
+---
+
+## git client
+
+- git을 보다 편하게 사용할 수 있게 도와주는 GUI 클라이언트
+- SourceTree, GitHub Desktop, TortoiseGit 등등...
+
+---
+
+## Fork git client
+
+- [https://git-fork.com/](https://git-fork.com/)
+- macOS / Windows 크로스 플랫폼
+- 깔끔한 Native UI
+- 개인적으로 사용해본 git client 중 가장 빠르고 말썽이 없음
+
+---
+
+## CMake를 이용한 외부 라이브러리 사용하기
+
+- `CMakeLists.txt`에 다음을 추가 (1)
+
+```cmake
+# ExternalProject 관련 명령어 셋 추가
+include(ExternalProject)
+
+# Dependency 관련 변수 설정
+set(DEP_INSTALL_DIR ${PROJECT_BINARY_DIR}/install)
+set(DEP_INCLUDE_DIR ${DEP_INSTALL_DIR}/include)
+set(DEP_LIB_DIR ${DEP_INSTALL_DIR}/lib)
+```
+
+---
+
+## CMake를 이용한 외부 라이브러리 사용하기
+
+- `CMakeLists.txt`에 다음을 추가 (2)
+
+```cmake
+# spdlog: fast logger library
+ExternalProject_Add(
+    dep-spdlog
+    GIT_REPOSITORY "https://github.com/gabime/spdlog.git"
+    GIT_TAG "v1.x"
+    GIT_SHALLOW 1
+    UPDATE_COMMAND ""
+    PATCH_COMMAND ""
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEP_INSTALL_DIR}
+    TEST_COMMAND ""
+)
+# Dependency 리스트 및 라이브러리 파일 리스트 추가
+set(DEP_LIST ${DEP_LIST} dep-spdlog)
+set(DEP_LIBS ${DEP_LIBS} spdlog$<$<CONFIG:Debug>:d>)
+```
+
+---
+
+## CMake를 이용한 외부 라이브러리 사용하기
+
+- `CMakeLists.txt`에 다음을 추가 (3)
+
+```cmake
+# 우리 프로젝트에 include / lib 관련 옵션 추가
+target_include_directories(${PROJECT_NAME} PUBLIC ${DEP_INCLUDE_DIR})
+target_link_directories(${PROJECT_NAME} PUBLIC ${DEP_LIB_DIR})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${DEP_LIBS})
+
+# Dependency들이 먼저 build 될 수 있게 관계 설정
+add_dependencies(${PROJECT_NAME} ${DEP_LIST})
+```
+
+---
+
+### spdlog로 로그 출력해보기
+
+- `src/main.cpp`를 다음과 같이 수정
+
+```cpp
+#include <spdlog/spdlog.h>
+
+int main(int argc, const char** argv) {
+    SPDLOG_INFO("Hello, world!");
+    return 0;
+}
+```
+
+- 빌드 후 결과 확인
+
+```text
+[2021-01-02 19:45:11.051] [info] [main.cpp:4] Hello, world!
+```
+
+---
+
+## CMake 파일 나눠서 관리하기
+
+- `Dependency.cmake` 파일을 생성
+- 앞의 cmake 추가 (1) (2) 번 내용을 옮겨넣기
+
+```cmake
+# ExternalProject 관련 명령어 셋 추가
+include(ExternalProject)
+
+# Dependency 관련 변수 설정
+set(DEP_INSTALL_DIR ${PROJECT_BINARY_DIR}/install)
+set(DEP_INCLUDE_DIR ${DEP_INSTALL_DIR}/include)
+set(DEP_LIB_DIR ${DEP_INSTALL_DIR}/lib)
+
+# spdlog: fast logger library
+ExternalProject_Add(
+    dep-spdlog
+    GIT_REPOSITORY "https://github.com/gabime/spdlog.git"
+    GIT_TAG "v1.x"
+    GIT_SHALLOW 1
+    UPDATE_COMMAND "" TEST_COMMAND "" PATCH_COMMAND ""
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${DEP_INSTALL_DIR}
+    )
+# Dependency 리스트 및 라이브러리 파일 리스트 추가
+set(DEP_LIST ${DEP_LIST} dep-spdlog)
+set(DEP_LIBS ${DEP_LIBS} spdlog$<$<CONFIG:Debug>:d>)
+```
+
+---
+
+## CMake 파일 나눠서 관리하기
+
+- `CMakeLists.txt` 파일에서 `Dependency.cmake` 불러오기
+
+```cmake
+cmake_minimum_required(VERSION 3.10)
+
+set(PROJECT_NAME cmake_project_example)
+set(CMAKE_CXX_STANDARD 17)
+
+project(${PROJECT_NAME})
+add_executable(${PROJECT_NAME} src/main.cpp)
+
+include(Dependency.cmake)
+
+# 우리 프로젝트에 include / lib 관련 옵션 추가
+target_include_directories(${PROJECT_NAME} PUBLIC ${DEP_INCLUDE_DIR})
+target_link_directories(${PROJECT_NAME} PUBLIC ${DEP_LIB_DIR})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${DEP_LIBS})
+
+# Dependency들이 먼저 build 될 수 있게 관계 설정
+add_dependencies(${PROJECT_NAME} ${DEP_LIST})
+```
+
+---
+
+## CMake 파일 나눠서 관리하기
+
+- 빌드 후 재실행해서 프로젝트 세팅이 올바른지 확인
+
+---
+
+## GLFW dependency 추가하기
+
+- OpenGL은 3D 그래픽을 위한 API일 뿐
+- 화면에 그림을 그리기 위해서는 다음과 같은 작업이 추가적으로 필요함
+  - 윈도우 생성하기 (당연히 OS에 따라 윈도우 생성 방식이 다름)
+  - 윈도우에 OpenGL을 위한 surface 생성하고 연결하기
+  - 키보드 / 마우스 입력 연결하기
+
+---
+
+## GLFW dependency 추가하기
+
+- [GLFW](https://www.glfw.org/)
+  - Open-source, cross-platform library for
+    - creating windows, contexts, and surfaces,
+    - receiving input and events
+
+---
+
+## GLFW dependency 추가하기
+
+
+- `Dependency.cmake`에 다음을 추가
+
+```cmake
+# glfw
+ExternalProject_Add(
+    dep_glfw
+    GIT_REPOSITORY "https://github.com/glfw/glfw.git"
+    GIT_TAG "3.3.2"
+    GIT_SHALLOW 1
+    UPDATE_COMMAND "" PATCH_COMMAND "" TEST_COMMAND ""
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX=${DEP_INSTALL_DIR}
+        -DGLFW_BUILD_EXAMPLES=OFF
+        -DGLFW_BUILD_TESTS=OFF
+        -DGLFW_BUILD_DOCS=OFF
+    )
+set(DEP_LIST ${DEP_LIST} dep_glfw)
+set(DEP_LIBS ${DEP_LIBS} glfw3)
+```
+
+---
+
+## CMake debug tip
+
+- `message()` 를 활용하여 중간의 변수값을 출력해볼 수 있다
+- `set(CMAKE_VERBOSE_MAKEFILE ON)` 을 활용하면 세부적인 빌드 커맨드를 볼 수 있다
+
+---
+
+## GLFW로 윈도우를 생성하기
+
+- `src/main.cpp`를 다음과 같이 수정 (1)
+
+```cpp
+#include <spdlog/spdlog.h>
+#include <GLFW/glfw3.h>
+
+int main(int argc, const char** argv) {
+    // 시작을 알리는 로그
+    SPDLOG_INFO("Start program");
+```
+
+---
+
+## GLFW로 윈도우를 생성하기
+
+- `src/main.cpp`를 다음과 같이 수정 (2)
+
+```cpp
+    // glfw 라이브러리 초기화, 실패하면 에러 출력후 종료
+    SPDLOG_INFO("Initialize glfw");
+    if (!glfwInit()) {
+        const char* description = nullptr;
+        glfwGetError(&description);
+        SPDLOG_ERROR("failed to initialize glfw: {}", description);
+        return -1;
+    }
+```
+
+---
+
+## GLFW로 윈도우를 생성하기
+
+- `src/main.cpp`를 다음과 같이 수정 (3)
+
+```cpp
+    // glfw 윈도우 생성, 실패하면 에러 출력후 종료
+    SPDLOG_INFO("Create glfw window");
+    auto window = glfwCreateWindow(640, 480, "Hello, OpenGL!", nullptr, nullptr);
+    if (!window) {
+        SPDLOG_ERROR("failed to create glfw window");
+        glfwTerminate();
+        return -1;
+    }
+```
+
+---
+
+## GLFW로 윈도우를 생성하기
+
+- `src/main.cpp`를 다음과 같이 수정 (4)
+
+```cpp
+    // glfw 루프 실행, 윈도우 close 버튼을 누르면 정상 종료
+    SPDLOG_INFO("Start main loop");
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+    }
+
+    glfwTerminate();
+    return 0;
+}
+```
+
+---
+
+## GLFW로 윈도우를 생성하기
+
+- 빌드 후 결과 확인
+  - 빈 화면의 윈도우가 생성
+  - 윈도우 타이틀이 `Hello, OpenGL!`로 설정
+  - 윈도우의 close 버튼을 누르면 프로그램 종료
+  - Debug console에 `SPDLOG_INFO()`로 출력한 로그 내역이 나오는 것 확인
+
+```text
+[2021-01-02 20:21:37.402] [info] [main.cpp:6] Start program
+[2021-01-02 20:21:37.404] [info] [main.cpp:9] Initialize glfw
+[2021-01-02 20:21:37.544] [info] [main.cpp:18] Create glfw window
+[2021-01-02 20:21:37.824] [info] [main.cpp:27] Start main loop
+```
+
+---
+
+## Congratulation!
+### 수고하셨습니다!
