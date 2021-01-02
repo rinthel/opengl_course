@@ -18,8 +18,8 @@ Computer Graphics with OpenGL
 ## Objective
 
 - 컴퓨터 그래픽스 기초 이해
+- OpenGL을 이용한 기초적인 3D 그래픽스 렌더링
 - VSCode + CMake를 이용한 C++ 프로젝트 작성
-- OpenGL을 이용한 기초 렌더링
 
 ---
 

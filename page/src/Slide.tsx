@@ -5,8 +5,11 @@ import { Link, useRouteMatch } from "react-router-dom";
 import Reveal from 'reveal.js';
 // @ts-ignore
 import Markdown from 'reveal.js/plugin/markdown/markdown.esm.js';
+// @ts-ignore
+import Highlight from 'reveal.js/plugin/highlight/highlight.esm.js';
 import 'reveal.js/dist/reveal.css';
-import 'reveal.js/dist/theme/black.css';
+import 'reveal.js/dist/theme/moon.css';
+import 'reveal.js/plugin/highlight/monokai.css';
 
 function Slide() {
   type Params = {
@@ -23,7 +26,7 @@ function Slide() {
       if (deckRef.current)
         return;
       let deck = new Reveal({
-        plugins: [Markdown]
+        plugins: [Markdown, Highlight]
       });
       deck.initialize({
         embedded: true,
@@ -32,6 +35,7 @@ function Slide() {
         controlsTutorial: true,
         slideNumber: true,
         showSlideNumber: "all",
+        hash: true,
       });
       deckRef.current = deck;
   }, [deckRef]);
