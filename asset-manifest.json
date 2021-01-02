@@ -1,23 +1,26 @@
 {
   "files": {
-    "main.css": "/opengl_course/static/css/main.ab7136cd.chunk.css",
-    "main.js": "/opengl_course/static/js/main.c652f979.chunk.js",
-    "main.js.map": "/opengl_course/static/js/main.c652f979.chunk.js.map",
-    "runtime-main.js": "/opengl_course/static/js/runtime-main.2dcda591.js",
-    "runtime-main.js.map": "/opengl_course/static/js/runtime-main.2dcda591.js.map",
-    "static/js/2.ecd234db.chunk.js": "/opengl_course/static/js/2.ecd234db.chunk.js",
-    "static/js/2.ecd234db.chunk.js.map": "/opengl_course/static/js/2.ecd234db.chunk.js.map",
-    "static/js/3.8a188064.chunk.js": "/opengl_course/static/js/3.8a188064.chunk.js",
-    "static/js/3.8a188064.chunk.js.map": "/opengl_course/static/js/3.8a188064.chunk.js.map",
+    "main.css": "/opengl_course/static/css/main.db77767b.chunk.css",
+    "main.js": "/opengl_course/static/js/main.243c354d.chunk.js",
+    "main.js.map": "/opengl_course/static/js/main.243c354d.chunk.js.map",
+    "runtime-main.js": "/opengl_course/static/js/runtime-main.beebc0e2.js",
+    "runtime-main.js.map": "/opengl_course/static/js/runtime-main.beebc0e2.js.map",
+    "static/css/2.7140d680.chunk.css": "/opengl_course/static/css/2.7140d680.chunk.css",
+    "static/js/2.2d70a2d2.chunk.js": "/opengl_course/static/js/2.2d70a2d2.chunk.js",
+    "static/js/2.2d70a2d2.chunk.js.map": "/opengl_course/static/js/2.2d70a2d2.chunk.js.map",
+    "static/js/3.e4385025.chunk.js": "/opengl_course/static/js/3.e4385025.chunk.js",
+    "static/js/3.e4385025.chunk.js.map": "/opengl_course/static/js/3.e4385025.chunk.js.map",
     "index.html": "/opengl_course/index.html",
-    "static/css/main.ab7136cd.chunk.css.map": "/opengl_course/static/css/main.ab7136cd.chunk.css.map",
-    "static/js/2.ecd234db.chunk.js.LICENSE.txt": "/opengl_course/static/js/2.ecd234db.chunk.js.LICENSE.txt",
-    "static/media/logo.6ce24c58.svg": "/opengl_course/static/media/logo.6ce24c58.svg"
+    "static/css/2.7140d680.chunk.css.map": "/opengl_course/static/css/2.7140d680.chunk.css.map",
+    "static/css/main.db77767b.chunk.css.map": "/opengl_course/static/css/main.db77767b.chunk.css.map",
+    "static/js/2.2d70a2d2.chunk.js.LICENSE.txt": "/opengl_course/static/js/2.2d70a2d2.chunk.js.LICENSE.txt",
+    "static/media/moon.css": "/opengl_course/static/media/league-gothic.6ae91382.ttf"
   },
   "entrypoints": [
-    "static/js/runtime-main.2dcda591.js",
-    "static/js/2.ecd234db.chunk.js",
-    "static/css/main.ab7136cd.chunk.css",
-    "static/js/main.c652f979.chunk.js"
+    "static/js/runtime-main.beebc0e2.js",
+    "static/css/2.7140d680.chunk.css",
+    "static/js/2.2d70a2d2.chunk.js",
+    "static/css/main.db77767b.chunk.css",
+    "static/js/main.243c354d.chunk.js"
   ]
 }
