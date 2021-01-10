@@ -37,6 +37,15 @@ Computer Graphics with OpenGL
 
 ---
 
+---
+
+## References
+
+- [learnopengl.com](https://learnopengl.com)
+- [OpenGL SuperBible 7th edition](https://www.openglsuperbible.com)
+
+---
+
 ## Tool
 
 - CMake (project management)
@@ -85,3 +94,7 @@ Computer Graphics with OpenGL
 14. Normal shader
 15. Physics based shader
 
+---
+
+## Congratulation!
+### 수고하셨습니다!
