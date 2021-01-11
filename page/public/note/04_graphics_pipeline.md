@@ -365,10 +365,365 @@ while (!glfwWindowShouldClose(window)) {
 
 ---
 
+## Shader code loading
+
+- 임의의 shader 파일을 읽는다
+- shader 오브젝트를 만들고 shader 읽어들인 shader 코드를 세팅한다
+- shader를 컴파일한다
+- shader 컴파일 결과가 실패했다면 에러를 레포팅한다
+
+---
+
+## Text file loading
+
+- `src/common.h` 파일 작성
+  - 프로젝트가 공통적으로 이용할 기능들을 정의할 파일
+
+```cpp
+#ifndef __COMMON_H__
+#define __COMMON_H__
+
+#include <memory>
+#include <string>
+#include <optional>
+#include <glad/glad.h>
+#include <glfw/glfw3.h>
+#include <spdlog/spdlog.h>
+
+std::optional<std::string> LoadTextFile(const std::string& filename);
+
+#endif // __COMMON_H__
+```
+
+---
+
+## Text file loading
+
+- `optional<>`
+  - C++17부터 사용 가능한 표준 라이브러리
+  - 어떤 값이 있거나 없는 경우를 포인터 없이 표현 가능
+
+---
+
+## Text file loading
+
+- `src/common.cpp` 파일 작성
+
+```cpp
+#include "common.h"
+#include <fstream>
+#include <sstream>
+
+std::optional<std::string> LoadTextFile(const std::string& filename) {
+    std::ifstream fin(filename);
+    if (!fin.is_open()) {
+        SPDLOG_ERROR("failed to open file: {}", filename);
+        return {};
+    }
+    std::stringstream text;
+    text << fin.rdbuf();
+    return text.str();
+}
+```
+
+---
+
+## Shader class design
+
+- `Shader` 클래스 설계
+  - OpenGL shader object를 가지고 있다
+  - 인스턴스가 생성될 때 로딩할 파일명을 입력받자
+  - 입력된 파일명으로부터 인스턴스 생성이 실패하면 메모리 할당 해제
+  - **C++11 smart pointer 활용**
+
+---
+
+## Smart pointer
+
+- Smart pointer
+  - C++11 부터 사용 가능한 **좀 더 안전한** 포인터
+  - 메모리 할당을 받을 때 **소유권에 대한 정보가 있다**
+  - 명시적인 `delete` 구문이 필요없다
+  - std::unique_ptr<>: 해당 메모리 블록을 단독으로 소유
+  - std::shared_ptr<>: 해당 메모리 블록의 소유권을 공유
+  - std::weak_ptr<>: 해당 메모리 소유권은 없지만 접근은 가능
+
+---
+
+## Smart pointer
+
+- 어떻게 더 안전한가?
+  - 일반 포인터를 이용하는 경우: 반드시 메모리 해제를 해줘야 함
+
+```cpp
+{
+  int* a = new int;
+  int* b = a;
+
+  // ...
+  // a 메모리 블록 만큼의 memory leak 발생
+}
+```
+
+---
+
+## Smart pointer
+
+- 어떻게 더 안전한가?
+  - 일반 포인터를 이용하는 경우: 메모리를 두번 해제하면 문제 발생
+
+```cpp
+{
+  int* a = new int;
+  int* b = a;
+
+  // ...
+
+  delete a;
+  delete b; // 두 번 메모리를 해제하여 문제 발생
+}
+```
+
+---
+
+## Smart pointer
+
+- 어떻게 더 안전한가?
+  - unique_ptr<>를 사용하는 경우: 소유권을 가진 인스턴스가
+    스코프 밖으로 벗어났을때 메모리 자동 해제
+
+```cpp
+{
+  std::unique_ptr<int> a = std::make_unique();
+  int* b = a.get();
+
+  // ...
+}
+```
+
+---
+
+## Smart pointer
+
+- 어떻게 더 안전한가?
+  - unique_ptr<>를 사용하는 경우: 소유권을 가진 인스턴스가
+    일반적인 방법으로 다른 쪽에 소유권을 이전하려는 경우 에러 발생
+
+```cpp
+{
+  std::unique_ptr<int> a = std::make_unique();
+  std::unique_ptr<int> b = a; // error 발생
+
+  // ...
+}
+```
+
+---
+
+## Smart pointer
+
+- 어떻게 더 안전한가?
+  - unique_ptr<>를 사용하는 경우: `std::move()` 함수를 사용해서
+    명시적으로 소유권 이전 가능. 대신 이전에 소유권을 가진 인스턴스는
+    `nullptr`를 갖게됨
+
+```cpp
+{
+  std::unique_ptr<int> a = std::make_unique();
+  std::unique_ptr<int> b = std::move(a);
+
+  // a는 nullptr가 되어 더이상 사용 불가능
+}
+```
+
+---
+
+## `Shader` 클래스 설계
+
+- `src/common.h`에 다음 매크로를 추가
+  - `std::unique_ptr` 대신 `클래스이름UPtr` 사용
+
+```cpp
+#define CLASS_PTR(klassName) \
+class klassName; \
+using klassName ## UPtr = std::unique_ptr<klassName>; \
+using klassName ## Ptr = std::shared_ptr<klassName>; \
+using klassName ## WPtr = std::weak_ptr<klassName>;
+```
+
+---
+
+## `Shader` 클래스 설계
+
+- `src/shader.h` 생성
+
+```cpp
+#ifndef __SHADER_H__
+#define __SHADER_H__
+
+#include "common.h"
+
+// ... 본문은 여기에
+
+#endif // __SHADER_H__
+```
+
+---
+
+## `Shader` 클래스 설계
+
+- `Shader` 클래스 정의를 `src/shader.h`에 추가 
+
+```cpp
+CLASS_PTR(Shader);
+class Shader {
+public:
+  static ShaderUPtr CreateFromFile(const std::string& filename,
+    GLenum shaderType);
+
+  ~Shader();
+  uint32_t getShader() const { return m_shader; }    
+private:
+  Shader() {}
+  bool LoadFile(const std::string& filename, GLenum shaderType);
+  uint32_t m_shader { 0 };
+};
+```
+
+---
+
+## `Shader` 클래스 설계
+
+- 이렇게 설계된 이유
+  - 생성자가 `private`인 이유: `CreateFromFile()` 함수 외에
+    다른 방식의 `Shader` 인스턴스 생성을 막기 위해서
+  - `getShader()`은 있는데 `setShader()`는 없는 이유:
+    shader 오브젝트의 생성 관리는 `Shader` 내부에서만 관리
+  - `LoadFile()`이 `bool`을 리턴하는 이유: 생성에 실패할 경우
+    `false`를 리턴하기 위해서
+
+---
+
+## `Shader` 클래스 구현
+
+- `src/shader.cpp` 생성
+
+```cpp
+#include "shader.h"
+```
+
+---
+
+## `Shader` 클래스 구현
+
+- `CreateFromFile()` 구현
+
+```cpp
+ShaderUPtr Shader::CreateFromFile(const std::string& filename,
+  GLenum shaderType) {
+  auto shader = std::unique_ptr<Shader>(new Shader());
+  if (!shader->LoadFile(filename, shaderType))
+    return nullptr;
+  return std::move(shader);
+}
+```
+
+---
+
+## `Shader` 클래스 구현
+
+- `LoadFile()` 구현
+  - 파일 로딩 실패시 `false` 리턴
+  - 성공시 로딩된 텍스트 포인터 및 길이 가져오기
+
+```cpp
+bool Shader::LoadFile(const std::string& filename, GLenum shaderType) {
+  auto result = LoadTextFile(filename);
+  if (!result.has_value())
+    return false;
+
+  auto& code = result.value();
+  const char* codePtr = code.c_str();
+  int32_t codeLength = (int32_t)code.length();
+```
+
+---
+
+## `Shader` 클래스 구현
+
+- `LoadFile()` 구현
+  - `glCreateShader()`를 이용한 shader 오브젝트 생성
+  - `glShaderSource()`로 소스코드 입력
+  - `glCompileShader()`로 shader 컴파일
+
+```cpp
+// create and compile shader
+m_shader = glCreateShader(shaderType);
+glShaderSource(m_shader, 1, (const GLchar* const*)&codePtr, &codeLength);
+glCompileShader(m_shader);
+```
+
+---
+
+## `Shader` 클래스 구현
+
+- `LoadFile()` 구현
+  - `glGetShaderiv()`로 컴파일 상태 조회
+  - 만약에 성공이 아니라면 `glGetShaderInfoLog()`로 에러 로그 가져오기
+
+```cpp
+  // check compile error
+  int success = 0;
+  glGetShaderiv(m_shader, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    char infoLog[1024];
+    glGetShaderInfoLog(m_shader, 1024, nullptr, infoLog);
+    SPDLOG_ERROR("failed to compile shader: \"{}\"", filename);
+    SPDLOG_ERROR("reason: {}", infoLog);
+    return false;
+  }
+  return true;
+}
+```
+
+---
+
+## `Shader` 클래스 테스트
+
+- `src/main.cpp`에서 `shader.h` 포함
+
+```cpp
+#include "common.h"
+#include "shader.h"
+```
+
+---
+
+## `Shader` 클래스 테스트
+
+- `Shader` 클래스 생성 및 shader 코드 컴파일 테스트
+
+```cpp
+auto vertexShader = Shader::CreateFromFile("./shader/simple.vs", GL_VERTEX_SHADER);
+auto fragmentShader = Shader::CreateFromFile("./shader/simple.fs", GL_FRAGMENT_SHADER);
+SPDLOG_INFO("vertex shader id: {}", vertexShader->getShader());
+SPDLOG_INFO("fragment shader id: {}", fragmentShader->getShader());
+```
+
+---
+
+## VSCode GLSL Extension
+
+- Extension 탭에서 `shader`로 검색
+- Shader languages support for VS Code 설치
+  - glsl 코드 syntax highlight
+
+---
+
 ## Vertex shader code
 
 - 가장 단순한 vertex shader 작성
-- `shader/vs_simple.glsl`
+- `shader/simple.vs`
 
 ```glsl
 #version 330 core
@@ -384,7 +739,7 @@ void main() {
 ## Fragment shader code
 
 - 가장 단순한 fragment shader 작성
-- `shader/fs_simple.glsl`
+- `shader/simple.fs`
 
 ```glsl
 #version 330 core
@@ -397,7 +752,40 @@ void main() {
 
 ---
 
-## Shader code loading
+## 실행 결과
+
+- 로딩 실패 메세지 출력 후 실행 멈춤
+
+```console
+[2021-01-11 19:59:26.883] [error] [common.cpp:8] failed to open file: ./shader/simple.vs
+[2021-01-11 19:59:26.883] [error] [common.cpp:8] failed to open file: ./shader/simple.fs
+```
+
+---
+
+## 실행 결과
+
+- `.vscode/settings.json`를 열어서 다음과 같이 디버깅 환경변수를 추가
+
+```json
+{
+  "C_Cpp.intelliSenseEngineFallback": "Enabled",
+  "cmake.debugConfig": {
+    "cwd": "${workspaceFolder}"
+  }
+}
+```
+
+---
+
+## 실행 결과
+
+- 로딩 및 컴파일이 성공하면 shader object id (정수)가 출력는 것을 확인
+
+```console
+[2021-01-11 20:01:18.493] [info] [main.cpp:71] vertex shader id: 1
+[2021-01-11 20:01:18.493] [info] [main.cpp:72] fragment shader id: 2
+```
 
 ---
 

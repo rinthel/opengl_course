@@ -1,0 +1,6 @@
+{
+    "C_Cpp.intelliSenseEngineFallback": "Enabled",
+    "cmake.debugConfig": {
+        "cwd": "${workspaceFolder}"
+    }
+}
