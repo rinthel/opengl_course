@@ -32,6 +32,7 @@ function Home() {
         <li><Link to="01_introduction">1. Introduction</Link></li>
         <li><Link to="02_computer_graphics_and_opengl">2. Computer Graphics and OpenGL</Link></li>
         <li><Link to="03_development_environment">3. Development Environment</Link></li>
+        <li><Link to="04_graphics_pipeline">4. Graphics Pipeline</Link></li>
       </ul>
       <h3>문의</h3>
       <h4>권지용 (rinthel AT gmail.com)</h4>

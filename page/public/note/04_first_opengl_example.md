@@ -1,5 +1,0 @@
-# Introduction
-
-First OpenGL Example
-
----
