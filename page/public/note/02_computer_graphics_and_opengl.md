@@ -10,6 +10,16 @@
 
 ---
 
+## 연구분야
+
+- Image / Video Processing
+- Modeling
+- Rendering
+- Character Animation
+- Physics-based simulation
+
+---
+
 ## 응용분야
 
 - 영화 / 애니메이션 / 게임
@@ -23,17 +33,6 @@
 - SGI (실리콘 그래픽스) 사의 그래픽 라이브러리 GL의 오픈소스화
 - 1992년 첫 버전 발표
 - 버전업을 거쳐 현재 4.6 까지 업데이트됨
-
----
-
-## OpenGL의 특징
-
-- Low-level API
-- Cross-language
-- Cross-platform
-- 개발 체계
-  - Khronos Group은 API 스펙을 관리
-  - 실제 OpenGL driver는 벤더에서 스펙에 맞게 개발
 
 ---
 
@@ -59,11 +58,14 @@
 
 ## OpenGL 외 그래픽스 / GPU API
 
-- DirectX: Microsoft - Windows
-- Metal: Apple - macOS, iOS
-- Vulkan: Next generation of OpenGL
-- CUDA: nVidia
-- OpenCL: Khronos
+- Graphics API
+  - DirectX: Microsoft - Windows
+  - Metal: Apple - macOS, iOS
+  - Vulkan: Next generation of OpenGL
+
+- GPGPU API
+  - CUDA: nVidia
+  - OpenCL: Khronos
 
 ---
 
@@ -78,8 +80,19 @@
 ## 왜 Vulkan이 아닌가?
 
 - Lower-level than OpenGL
-- Hard to learn without GPU knowledge
+- Hard to learn without Graphics / GPU knowledge
 - 하지만 관심이 있다면 공부해보세요. 다양한 장점이 있습니다.
+
+---
+
+## OpenGL의 특징
+
+- Low-level API
+- Cross-language
+- Cross-platform
+- Standard / Specification only
+  - Khronos Group에서 API 스펙을 관리
+  - 실제 OpenGL driver는 각 벤더에서 스펙에 맞게 개발
 
 ---
 
@@ -96,7 +109,11 @@
 
 - OpenGL 3.3
   - 가장 널리 사용되어온 OpenGL 버전
+  - Core-profile
+    - 2.x 이전 기능 중 불필요하고 비효율적인 기능 제거
+    - 새로운 형태의 OpenGL context
   - Forward compatibility
+    - 이후 버전에서도 동작할 것을 보장
 
 ---
 
