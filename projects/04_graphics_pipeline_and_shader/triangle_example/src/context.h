@@ -14,6 +14,9 @@ private:
     Context() {}
     bool Init();
     ProgramUPtr m_program;
+
+    uint32_t m_vertexBuffer;
+    uint32_t m_vertexArrayObject;
 };
 
 #endif // __CONTEXT_H__
