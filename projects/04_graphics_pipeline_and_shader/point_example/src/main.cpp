@@ -1,5 +1,5 @@
 #include "common.h"
-#include "shader.h"
+#include "context.h"
 
 void OnFramebufferSizeChange(GLFWwindow* window, int width, int height) {
     SPDLOG_INFO("framebuffer size changed: ({} x {})", width, height);
@@ -45,7 +45,7 @@ int main(int argc, const char** argv) {
 
     // glfw 윈도우 생성, 실패하면 에러 출력후 종료
     SPDLOG_INFO("Create glfw window");
-    auto window = glfwCreateWindow(640, 480, "Hello, OpenGL!", nullptr, nullptr);
+    auto window = glfwCreateWindow(640, 480, "Point Example", nullptr, nullptr);
     if (!window) {
         SPDLOG_ERROR("failed to create glfw window");
         glfwTerminate();
@@ -66,15 +66,17 @@ int main(int argc, const char** argv) {
     glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
     glfwSetKeyCallback(window, OnKeyEvent);
 
-    auto vertShader = Shader::CreateFromFile("./shader/simple.vs", GL_VERTEX_SHADER);
-    auto fragShader = Shader::CreateFromFile("./shader/simple.fs", GL_FRAGMENT_SHADER);
-    SPDLOG_INFO("vertex shader id: {}", vertShader->getShader());
-    SPDLOG_INFO("fragment shader id: {}", fragShader->getShader());
-    
+    auto context = Context::Create();
+    if (!context) {
+        SPDLOG_ERROR("failed to create context");
+        glfwTerminate();
+        return -1;
+    }
+
     // glfw 루프 실행, 윈도우 close 버튼을 누르면 정상 종료
     SPDLOG_INFO("Start main loop");
     while (!glfwWindowShouldClose(window)) {
-        Render();
+        context->Render();
         glfwSwapBuffers(window);
         glfwPollEvents();
     }

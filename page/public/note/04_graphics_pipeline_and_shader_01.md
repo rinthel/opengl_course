@@ -1,4 +1,6 @@
-# Graphics Pipeline
+# Graphics Pipeline and Shader
+
+## Part 1
 
 ---
 
@@ -109,7 +111,7 @@ glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 - 윈도우 생성 후 함께 생성된 OpenGL Context를 사용
 
-```cpp
+```cpp [9]
 // glfw 윈도우 생성, 실패하면 에러 출력후 종료
 SPDLOG_INFO("Create glfw window");
 auto window = glfwCreateWindow(640, 480, "Hello, OpenGL!", nullptr, nullptr);
@@ -118,7 +120,7 @@ if (!window) {
     glfwTerminate();
     return -1;
 }
-glfwMakeContextCurrent(window); // new line
+glfwMakeContextCurrent(window);
 ```
 
 ---
@@ -128,9 +130,9 @@ glfwMakeContextCurrent(window); // new line
 - GLAD 라이브러리 사용을 위해 `#include` 구문 사용
 - 반드시 `#include <GLFW/GLFW.h>` 이전에 추가할 것
 
-```cpp
+```cpp [2]
 #include <spdlog/spdlog.h>
-#include <glad/glad.h> // new line
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 ```
 
@@ -249,11 +251,11 @@ void Render() {
 - 루프 내에서 렌더링 함수 호출
 - 프레임버퍼 스왑 코드 호출
 
-```cpp
+```cpp [3-4]
 SPDLOG_INFO("Start main loop");
 while (!glfwWindowShouldClose(window)) {
-    Render(); // new line
-    glfwSwapBuffers(window); // new line
+    Render();
+    glfwSwapBuffers(window);
     glfwPollEvents();
 }
 ```
@@ -359,7 +361,7 @@ while (!glfwWindowShouldClose(window)) {
 
 ## 두번째 예제 준비
 
-- `first_opengl_example` 예제를 복사하여 `triangle_example` 예제 생성
+- `first_opengl_example` 예제를 복사하여 `point_example` 예제 생성
 - cmake 프로젝트 명 변경
 - VSCode로 프로젝트 열기
 
@@ -582,7 +584,7 @@ public:
     GLenum shaderType);
 
   ~Shader();
-  uint32_t getShader() const { return m_shader; }    
+  uint32_t Get() const { return m_shader; }    
 private:
   Shader() {}
   bool LoadFile(const std::string& filename, GLenum shaderType);
@@ -597,7 +599,7 @@ private:
 - 이렇게 설계된 이유
   - 생성자가 `private`인 이유: `CreateFromFile()` 함수 외에
     다른 방식의 `Shader` 인스턴스 생성을 막기 위해서
-  - `getShader()`은 있는데 `setShader()`는 없는 이유:
+  - `Get()`은 있는데 `Set()`는 없는 이유:
     shader 오브젝트의 생성 관리는 `Shader` 내부에서만 관리
   - `LoadFile()`이 `bool`을 리턴하는 이유: 생성에 실패할 경우
     `false`를 리턴하기 위해서
@@ -685,6 +687,22 @@ glCompileShader(m_shader);
   return true;
 }
 ```
+---
+
+## `Shader` 클래스 구현
+
+- 소멸자 `~Shader` 구현
+  - `m_shader`는 처음에 `0`으로 초기화
+  - `m_shader`에 `0`이 아닌 다른 값이 들어가 있다면 `glDeleteShader()`를
+    호출하여 shader object 제거
+
+```cpp
+Shader::~Shader() {
+  if (m_shader) {
+    glDeleteShader(m_shader);
+  }
+}
+```
 
 ---
 
@@ -702,12 +720,13 @@ glCompileShader(m_shader);
 ## `Shader` 클래스 테스트
 
 - `Shader` 클래스 생성 및 shader 코드 컴파일 테스트
+- `src/main.cpp`에서 GLAD 초기화 이후 아래 코드를 추가하여 테스트
 
 ```cpp
 auto vertexShader = Shader::CreateFromFile("./shader/simple.vs", GL_VERTEX_SHADER);
 auto fragmentShader = Shader::CreateFromFile("./shader/simple.fs", GL_FRAGMENT_SHADER);
-SPDLOG_INFO("vertex shader id: {}", vertexShader->getShader());
-SPDLOG_INFO("fragment shader id: {}", fragmentShader->getShader());
+SPDLOG_INFO("vertex shader id: {}", vertexShader->Get());
+SPDLOG_INFO("fragment shader id: {}", fragmentShader->Get());
 ```
 
 ---
@@ -752,6 +771,20 @@ void main() {
 
 ---
 
+## 빌드 세팅
+
+- `CMakeLists.txt`에 방금 작성한 파일들을 추가
+
+```cmake
+add_executable(${PROJECT_NAME}
+  src/main.cpp
+  src/common.cpp src/common.h
+  src/shader.cpp src/shader.h
+  )
+```
+
+---
+
 ## 실행 결과
 
 - 로딩 실패 메세지 출력 후 실행 멈춤
@@ -767,7 +800,7 @@ void main() {
 
 - `.vscode/settings.json`를 열어서 다음과 같이 디버깅 환경변수를 추가
 
-```json
+```json [3-5]
 {
   "C_Cpp.intelliSenseEngineFallback": "Enabled",
   "cmake.debugConfig": {
@@ -789,20 +822,447 @@ void main() {
 
 ---
 
-## Vertex input
+## OpenGL Remarks (3)
 
-- 정점 데이터 준비
+- `glCreateShader()`: OpenGL shader object 생성
+- `glShaderSource()`: shader에 소스 코드 설정
+- `glCompileShader()`: shader 컴파일
+
+---
+
+## OpenGL Remarks (4)
+
+- `glGetShaderiv()`: shader에 대한 정수형 정보를 얻어옴
+- `glGetShaderInfoLog()`: shader에 대한 로그를 얻어옴. 컴파일 에러 얻어내는 용도로 사용
+- `glDeleteShader()`: shader object 제거
+
+---
+
+## Program class design
+
+- `Program` 클래스 설계
+  - vertex shader, fragment shader를 연결한 pipeline program
+  - 이 program을 이용해서 최종적으로 그림을 그린다
+  - 두 개의 shader를 입력 받아서 program을 링크시킨다
+  - 싱크에 성공하면 OpenGL program object를 생성
+  - 실패하면 메모리 할당 해제
+
+---
+
+## `Program` 클래스 설계
+
+- `src/program.h` 생성
 
 ```cpp
-float vertices[] = {
-  -0.5f, -0.5f, 0.0f,
-  0.5f, -0.5f, 0.0f,
-  0.0f, 0.5f, 0.0f
-  };
+#ifndef __PROGRAM_H__
+#define __PROGRAM_H__
+
+#include "common.h"
+#include "shader.h"
+
+// ... 본문은 여기에
+
+#endif // __PROGRAM_H__
 ```
 
 ---
 
+## `Program` 클래스 설계
+
+- `Program` 클래스 정의를 `src/program.h`에 추가 
+
+```cpp
+CLASS_PTR(Program)
+class Program {
+public:
+    static ProgramUPtr Create(
+        const std::vector<ShaderPtr>& shaders);
+
+    ~Program();
+    uint32_t Get() const { return m_program; }    
+private:
+    Program() {}
+    bool Link(
+        const std::vector<ShaderPtr>& shaders);
+    uint32_t m_program { 0 };
+};
+```
+
+---
+
+## `Program` 클래스 설계
+
+- 이렇게 설계된 이유
+  - vertex, fragment shader 외에 여러 개의 `Shader`를 링크할 수도 있게 함
+  - `Shader` 인스턴스 인자는 필요하지만 소유할 필요는 없음
+  - `Shader` 인스턴스는 다른 `Program` 인스턴스를 만드는 데 재사용할 수도 있음
+  - 따라서 shared pointer를 사용: `ShaderPtr`
+
+---
+
+## `Program` 클래스 구현
+
+- `src/program.cpp` 생성
+
+```cpp
+#include "program.h"
+```
+
+---
+
+## `Program` 클래스 구현
+
+- `Create()` 구현
+
+```cpp
+ProgramUPtr Program::Create(
+  const std::vector<ShaderPtr>& shaders) {
+  auto program = ProgramUPtr(new Program());
+  if (!program->Link(shaders))
+    return nullptr;
+  return std::move(program);
+}
+```
+
+---
+
+## `Program` 클래스 구현
+
+- `Link()` 구현
+  - `glCreateProgram()`으로 새로운 OpenGL program object 생성
+  - `glAttachShader()`로 program에 shader를 붙이기
+  - `glLinkProgram()`으로 program 링크
+
+```cpp
+bool Program::Link(
+  const std::vector<ShaderPtr>& shaders) {
+  m_program = glCreateProgram();
+  for (auto& shader: shaders)
+    glAttachShader(m_program, shader->Get());
+  glLinkProgram(m_program);
+```
+
+---
+
+## `Program` 클래스 구현
+
+- `Link()` 구현
+  - `glGetProgramiv()`로 프로그램 링크 상태 확인
+  - 링크에 실패했다면 `glGetProgramInfoLog()`로 에러 로그 가져오기
+
+```cpp
+  int success = 0;
+  glGetProgramiv(m_program, GL_LINK_STATUS, &success);
+  if (!success) {
+    char infoLog[1024];
+    glGetProgramInfoLog(m_program, 1024, nullptr, infoLog);
+    SPDLOG_ERROR("failed to link program: {}", infoLog);
+    return false;
+  }
+  return true;
+}
+```
+
+---
+
+## `Program` 클래스 구현
+
+- 소멸자 구현
+  - `glDeleteProgram()`으로 OpenGL program object 제거
+
+```cpp
+Program::~Program() {
+  if (m_program) {
+    glDeleteProgram(m_program);
+  }
+}
+```
+
+---
+
+## `Program` 클래스 테스트
+
+- `src/main.cpp`에 `program.h` 포함
+
+```cpp [3]
+#include "common.h"
+#include "shader.h"
+#include "program.h"
+```
+
+---
+
+## `Program` 클래스 테스트
+
+- `src/main.cpp`에서 `Shader` 인스턴스 생성 후 `Program` 인스턴스 생성
+  - `Shader` 인스턴스가 `unique_ptr`에서 `shared_ptr`로 변환되었음을 유의
+
+```cpp
+ShaderPtr vertShader = Shader::CreateFromFile("./shader/simple.vs", GL_VERTEX_SHADER);
+ShaderPtr fragShader = Shader::CreateFromFile("./shader/simple.fs", GL_FRAGMENT_SHADER);
+SPDLOG_INFO("vertex shader id: {}", vertShader->Get());
+SPDLOG_INFO("fragment shader id: {}", fragShader->Get());
+
+auto program = Program::Create({fragShader, vertShader});
+SPDLOG_INFO("program id: {}", program->Get());
+```
+
+---
+
+## 빌드 세팅
+
+- `CMakeLists.txt`에 `program.*` 파일들 추가
+
+```cmake
+ShaderPtr vertShader = Shader::CreateFromFile("./shader/simple.vs", GL_VERTEX_SHADER);
+ShaderPtr fragShader = Shader::CreateFromFile("./shader/simple.fs", GL_FRAGMENT_SHADER);
+SPDLOG_INFO("vertex shader id: {}", vertShader->Get());
+SPDLOG_INFO("fragment shader id: {}", fragShader->Get());
+
+auto program = Program::Create({fragShader, vertShader});
+SPDLOG_INFO("program id: {}", program->Get());
+```
+
+---
+
+## 실행 결과
+
+- 빌드 및 실행 결과
+  - 링크가 성공하여 program object id가 로그에 출력되는 것을 확인
+
+```console
+[2021-01-12 11:33:58.368] [info] [main.cpp:72] vertex shader id: 1
+[2021-01-12 11:33:58.368] [info] [main.cpp:73] fragment shader id: 2
+[2021-01-12 11:33:58.383] [info] [main.cpp:76] program id: 3
+```
+
+---
+
+## OpenGL Remarks (5)
+
+- `glCreateProgram()`: OpenGL program object 생성
+- `glAttachShader()`: program에 shader를 붙이기
+- `glLinkProgram()`: program 링크
+
+---
+
+## OpenGL Remarks (6)
+
+- `glGetProgramiv()`: program에 대한 정수형 정보를 얻어옴
+- `glGetProgramInfoLog()`: program에 대한 로그를 얻어옴. 링크 에러 얻어내는 용도로 사용
+- `glDeleteProgram()`: program object 제거
+
+---
+
+## 리팩토링
+
+- 프로그램 라이프사이클을 고려하여 코드 리팩토링
+  - GLFW / OpenGL Context / GLAD 초기화
+  - **그림을 그리기 위한 OpenGL objects 생성 (shader / program)**
+  - **렌더링**
+  - **OpenGL objects 제거**
+  - GLFW 종료 / 프로그램 종료
+- OpenGL object 들을 관리하고 렌더링하는 코드를 분리하자
+
+---
+
+## `Context` 클래스 디자인
+
+- `src/context.h` 생성
+
+```cpp
+#ifndef __CONTEXT_H__
+#define __CONTEXT_H__
+
+#include "common.h"
+#include "shader.h"
+#include "program.h"
+
+// ... context 클래스 선언
+
+#endif // __CONTEXT_H__
+```
+
+---
+
+## `Context` 클래스 디자인
+
+- `src/context.h`에 `Context` 클래스 선언
+
+```cpp
+CLASS_PTR(Context)
+class Context {
+public:
+    static ContextUPtr Create();
+    void Render();    
+private:
+    Context() {}
+    bool Init();
+    ProgramUPtr m_program;
+};
+```
+
+---
+
+## `Context` 클래스 구현
+
+- `src/context.cpp` 생성
+
+```cpp
+#include "context.h"
+```
+
+---
+
+## `Context` 클래스 구현
+
+- `Create()` 구현
+
+```cpp
+ContextUPtr Context::Create() {
+  auto context = ContextUPtr(new Context());
+  if (!context->Init())
+    return nullptr;
+  return std::move(context);
+}
+```
+
+---
+
+## `Context` 클래스 구현
+
+- `Init()`에 `src/main.cpp`에서 테스트하던 코드를 가지고 오기
+
+```cpp
+bool Context::Init() {
+  ShaderPtr vertShader = Shader::CreateFromFile("./shader/simple.vs", GL_VERTEX_SHADER);
+  ShaderPtr fragShader = Shader::CreateFromFile("./shader/simple.fs", GL_FRAGMENT_SHADER);
+  if (!vertShader || !fragShader)
+    return false;
+  SPDLOG_INFO("vertex shader id: {}", vertShader->Get());
+  SPDLOG_INFO("fragment shader id: {}", fragShader->Get());
+```
+
+---
+
+## `Context` 클래스 구현
+
+- `Shader`혹은 `Program` 생성 실패시 `false`를 리턴하여 메모리 할당을 자동 해제
+- 한번만 실행해도 되는 `glClearColor()`를 이쪽으로 이동시킴
+
+```cpp
+  m_program = Program::Create({fragShader, vertShader});
+  if (!m_program)
+    return false;
+  SPDLOG_INFO("program id: {}", m_program->Get());
+
+  glClearColor(0.1f, 0.2f, 0.3f, 0.0f);
+  return true;
+}
+```
+
+---
+
+## `Context` 클래스 구현
+
+- `Render()`가 `glClear()`를 호출하도록 구현
+
+```cpp
+void Context::Render() {
+  glClear(GL_COLOR_BUFFER_BIT);
+}
+```
+
+---
+
+## `Context` 클래스 사용
+
+- `CMakeLists.txt`에 `src/context.*`를 추가
+- `src/main.cpp`에서 `src/context.h` 포함시키기
+- GLAD 초기화까지 완료된 이후 다음과 같이 우리의 context 생성
+
+```cpp
+auto context = Context::Create();
+if (!context) {
+  SPDLOG_ERROR("failed to create context");
+  glfwTerminate();
+  return -1;
+}
+```
+
+---
+
+## `Context` 클래스 사용
+
+- 메인 루프에서 이전의 `Render()` 대신 `Context`의 `Render()` 호출
+- 빌드 및 실행후 파란 화면 / 로그 확인
+
+```cpp
+SPDLOG_INFO("Start main loop");
+while (!glfwWindowShouldClose(window)) {
+  context->Render();
+  glfwSwapBuffers(window);
+  glfwPollEvents();
+}
+```
+
+---
+
+## Shader program 테스트
+
+- 테스트를 위해 `Context::Init()`에서 vertex array object를 생성
+
+```cpp [3-5]
+  glClearColor(0.1f, 0.2f, 0.3f, 0.0f);
+
+  uint32_t vao = 0;
+  glGenVertexArrays(1, &vao);
+  glBindVertexArray(vao);
+
+  return true;
+}
+```
+
+---
+
+## Shader program 테스트
+
+- 테스트를 위해 `Context::Render()`에서 draw call
+
+```cpp [4-5]
+void Context::Render() {
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glUseProgram(m_program->Get());
+  glDrawArrays(GL_POINTS, 0, 1);
+}
+```
+
+---
+
+## 실행 결과
+
+- 화면 가운데에 빨간 점 확인
+
+![point draw](/opengl_course/note/images/04_point_draw.png)
+
+---
+
+## Additional note
+
+- `shader/simple.vs`에서 정점의 위치를 바꿔보자
+
+```glsl
+gl_Position = vec4(0.5, 0.5, 0.0, 1.0);
+```
+
+- `shader/simple.fs`에서 픽셀의 색상을 바꿔보자
+
+```glsl
+fragColor = vec4(1.0, 1.0, 1.0, 1.0);
+```
+
+---
 
 ## Congratulation!
 ### 수고하셨습니다!

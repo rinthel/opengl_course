@@ -8,6 +8,8 @@ add_executable(${PROJECT_NAME}
     src/main.cpp
     src/common.cpp src/common.h
     src/shader.cpp src/shader.h
+    src/program.cpp src/program.h
+    src/context.cpp src/context.h
     )
 
 include(Dependency.cmake)
@@ -19,3 +21,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${DEP_LIBS})
 
 # Dependency들이 먼저 build 될 수 있게 관계 설정
 add_dependencies(${PROJECT_NAME} ${DEP_LIST})
+
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PUBLIC /wd4819)
+endif()

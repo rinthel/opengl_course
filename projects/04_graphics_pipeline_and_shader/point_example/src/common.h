@@ -5,6 +5,7 @@
 #include <windows.h>
 #endif
 #include <memory>
+#include <vector>
 #include <string>
 #include <optional>
 #include <glad/glad.h>

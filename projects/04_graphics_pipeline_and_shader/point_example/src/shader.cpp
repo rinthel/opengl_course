@@ -1,11 +1,5 @@
 #include "shader.h"
 
-Shader::~Shader() {
-    if (m_shader) {
-        glDeleteShader(m_shader);
-    }
-}
-
 ShaderUPtr Shader::CreateFromFile(const std::string& filename, GLenum shaderType) {
     auto shader = std::unique_ptr<Shader>(new Shader());
     if (!shader->LoadFile(filename, shaderType))
@@ -39,4 +33,10 @@ bool Shader::LoadFile(const std::string& filename, GLenum shaderType) {
         return false;
     }
     return true;
+}
+
+Shader::~Shader() {
+    if (m_shader) {
+        glDeleteShader(m_shader);
+    }
 }
