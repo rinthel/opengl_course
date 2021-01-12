@@ -1211,6 +1211,7 @@ while (!glfwWindowShouldClose(window)) {
 ## Shader program 테스트
 
 - 테스트를 위해 `Context::Init()`에서 vertex array object를 생성
+  - vertex array object는 Part 2에서 다룰 예정
 
 ```cpp [3-5]
   glClearColor(0.1f, 0.2f, 0.3f, 0.0f);
@@ -1228,6 +1229,7 @@ while (!glfwWindowShouldClose(window)) {
 ## Shader program 테스트
 
 - 테스트를 위해 `Context::Render()`에서 draw call
+  - 그리기 관련 코드는 Part 2에서 다룰 예정
 
 ```cpp [4-5]
 void Context::Render() {
