@@ -37,8 +37,6 @@ Computer Graphics with OpenGL
 
 ---
 
----
-
 ## References
 
 - [learnopengl.com](https://learnopengl.com)
@@ -48,13 +46,15 @@ Computer Graphics with OpenGL
 
 ## Tool
 
-- CMake (project management)
-- VSCode (code editor)
-- Visual Studio (compiler)
-
-- OpenGL 4.x API (core functionality)
-- GLFW (for input / output)
-- ImGui (for GUI)
+- Development environment
+  - CMake (project management)
+  - VSCode (code editor)
+  - Visual Studio (compiler)
+- OpenGL 3.3 API (core profile)
+- Several libraries for easing our project
+  - GLFW (for window / input)
+  - GLAD (for OpenGL function loading)
+  - ImGui (for GUI)
 
 ---
 
