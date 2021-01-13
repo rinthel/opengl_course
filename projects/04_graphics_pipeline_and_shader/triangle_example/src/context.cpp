@@ -10,7 +10,7 @@ ContextUPtr Context::Create() {
 void Context::Render() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUseProgram(m_program->Get());
+    m_program->Use();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
@@ -26,19 +26,16 @@ bool Context::Init() {
         1, 2, 3, // second triangle
     };
 
-    glGenVertexArrays(1, &m_vertexArrayObject);
-    glBindVertexArray(m_vertexArrayObject);
+    m_vertexLayout = VertexLayout::Create();
+    m_vertexBuffer = Buffer::CreateWithData(
+        GL_ARRAY_BUFFER, GL_STATIC_DRAW,
+        vertices, sizeof(float) * 12);
 
-    glGenBuffers(1, &m_vertexBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, vertices, GL_STATIC_DRAW);
+    m_vertexLayout->SetAttrib(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
 
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
-
-    glGenBuffers(1, &m_indexBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * 6, indices, GL_STATIC_DRAW);
+    m_indexBuffer = Buffer::CreateWithData(
+        GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW,
+        indices, sizeof(uint32_t) * 6);
 
     ShaderPtr vertShader = Shader::CreateFromFile("./shader/simple.vs", GL_VERTEX_SHADER);
     ShaderPtr fragShader = Shader::CreateFromFile("./shader/simple.fs", GL_FRAGMENT_SHADER);

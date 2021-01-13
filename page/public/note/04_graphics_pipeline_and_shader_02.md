@@ -443,5 +443,311 @@ void Context::Render() {
 
 ---
 
+## Refactoring
+
+- `Buffer` 클래스
+  - VBO 혹은 EBO를 가질 수 있음
+  - 생성시 정점 데이터 혹은 인덱스 데이터를 제공하면,
+    해당 데이터를 GPU 메모리에 저장한 버퍼 오브젝트 생성
+  - 메모리 해제시 버퍼 오브젝트 제거
+
+---
+
+## `Buffer` 클래스 디자인
+
+- `src/buffer.h` 추가 및 클래스 디자인
+
+```cpp
+#ifndef __BUFFER_H__
+#define __BUFFER_H__
+
+#include "common.h"
+
+CLASS_PTR(Buffer)
+class Buffer {
+public:
+    static BufferUPtr CreateWithData(
+        uint32_t bufferType, uint32_t usage,
+        const void* data, size_t dataSize);
+    ~Buffer();
+    uint32_t Get() const { return m_buffer; }
+    void Bind() const;
+
+private:
+    Buffer() {}
+    bool Init(
+        uint32_t bufferType, uint32_t usage,
+        const void* data, size_t dataSize);
+    uint32_t m_buffer { 0 };
+    uint32_t m_bufferType { 0 };
+    uint32_t m_usage { 0 };
+};
+
+#endif // __BUFFER_H__
+```
+
+---
+
+## `Buffer` 클래스 구현
+
+- `src/buffer.cpp` 추가 및 구현
+
+```cpp
+#include "buffer.h"
+
+BufferUPtr Buffer::CreateWithData(
+    uint32_t bufferType, uint32_t usage,
+    const void* data, size_t dataSize) {
+    auto buffer = BufferUPtr(new Buffer());
+    if (!buffer->Init(bufferType, usage, data, dataSize))
+        return nullptr;
+    return std::move(buffer);
+}
+
+Buffer::~Buffer() {
+    if (m_buffer) {
+        glDeleteBuffers(1, &m_buffer);
+    }
+}
+
+void Buffer::Bind() const {
+    glBindBuffer(m_bufferType, m_buffer);
+}
+
+bool Buffer::Init(
+    uint32_t bufferType, uint32_t usage,
+    const void* data, size_t dataSize) {
+    m_bufferType = bufferType;
+    m_usage = usage;
+    glGenBuffers(1, &m_buffer);
+    Bind();
+    glBufferData(m_bufferType, dataSize, data, usage);
+    return true;
+}
+```
+
+---
+
+## `Buffer` 클래스 테스트
+
+- `Context` 클래스 멤버로 `Buffer` 클래스 사용
+
+```cpp [2-3]
+uint32_t m_vertexArrayObject;
+BufferUPtr m_vertexBuffer;
+BufferUPtr m_indexBuffer;
+```
+
+---
+
+## `Buffer` 클래스 테스트
+
+- `Context::Init()`에서 `Buffer` 클래스 생성
+
+```cpp [1-3,8-10]
+m_vertexBuffer = Buffer::CreateWithData(
+  GL_ARRAY_BUFFER, GL_STATIC_DRAW,
+  vertices, sizeof(float) * 12);
+
+glEnableVertexAttribArray(0);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
+
+m_indexBuffer = Buffer::CreateWithData(
+  GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW,
+  indices, sizeof(uint32_t) * 6);
+```
+
+---
+
+## `Program` 클래스 메소드
+
+- `glUseProgram()`을 호출해주는 `Program::Use()`
+
+```cpp [4]
+// src/program.h
+~Program();
+uint32_t Get() const { return m_program; }
+void Use() const;
+```
+
+```cpp [2-4]
+// src/program.cpp
+void Program::Use() const {
+    glUseProgram(m_program);
+}
+```
+
+---
+
+## `Program` 클래스 메소드
+
+- `Context::Render()`에서 `Program::Use()` 사용
+
+```cpp [4]
+void Context::Render() {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    m_program->Use();
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+```
+
+---
+
+## 빌드 및 실행
+
+- `CMakeLists.txt`에 새로운 파일을 리스트에 추가
+- 빌드 및 실행해서 사각형이 제대로 나오는지 확인
+
+---
+
+## `VertexLayout` 클래스
+
+- `VertexLayout`
+  - VAO 생성 및 메모리 해제시 VAO 제거
+  - vertex attribute 설정 기능 제공
+
+---
+
+## `VertexLayout` 클래스
+
+- `src/vertex_layout.h`
+
+```cpp
+#ifndef __VERTEX_LAYOUT_H__
+#define __VERTEX_LAYOUT_H__
+
+#include "common.h"
+
+CLASS_PTR(VertexLayout)
+class VertexLayout {
+public:
+    static VertexLayoutUPtr Create();
+    ~VertexLayout();
+
+    uint32_t Get() const { return m_vertexArrayObject; }
+    void Bind() const;
+    void SetAttrib(
+        uint32_t attribIndex, int count,
+        uint32_t type, bool normalized,
+        size_t stride, uint64_t offset) const;
+    void DisableAttrib(int attribIndex) const;
+
+private:
+    VertexLayout() {}
+    void Init();
+    uint32_t m_vertexArrayObject { 0 };
+};
+
+#endif // __VERTEX_LAYOUT_H__
+```
+
+---
+
+## `VertexLayout` 클래스
+
+- `src/vertex_layout.cpp`
+
+```cpp
+#include "vertex_layout.h"
+
+VertexLayoutUPtr VertexLayout::Create() {
+    auto vertexLayout = VertexLayoutUPtr(new VertexLayout());
+    vertexLayout->Init();
+    return std::move(vertexLayout);
+}
+
+VertexLayout::~VertexLayout() {
+    if (m_vertexArrayObject) {
+        glDeleteVertexArrays(1, &m_vertexArrayObject);
+    }
+}
+
+void VertexLayout::Bind() const {
+    glBindVertexArray(m_vertexArrayObject);
+}
+
+void VertexLayout::SetAttrib(
+    uint32_t attribIndex, int count,
+    uint32_t type, bool normalized,
+    size_t stride, uint64_t offset) const {
+    glEnableVertexAttribArray(attribIndex);
+    glVertexAttribPointer(attribIndex, count,
+        type, normalized, stride, (const void*)offset);
+}
+
+void VertexLayout::Init() {
+    glGenVertexArrays(1, &m_vertexArrayObject);
+    Bind();
+}
+```
+
+---
+
+## `VertexLayout` 클래스
+
+- `Context` 클래스에서 `VertexLayout` 인스턴스 멤버를 활용
+
+```cpp [1]
+VertexLayoutUPtr m_vertexLayout;
+BufferUPtr m_vertexBuffer;
+BufferUPtr m_indexBuffer;
+```
+
+```cpp [1, 6]
+m_vertexLayout = VertexLayout::Create();
+m_vertexBuffer = Buffer::CreateWithData(
+    GL_ARRAY_BUFFER, GL_STATIC_DRAW,
+    vertices, sizeof(float) * 12);
+
+m_vertexLayout->SetAttrib(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
+
+m_indexBuffer = Buffer::CreateWithData(
+    GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW,
+    indices, sizeof(uint32_t) * 6);
+```
+
+---
+
+## 빌드 및 실행
+
+- `CMakeLists.txt`에 새로운 파일들을 리스트에 추가
+- 빌드 및 실행하여 사각형이 잘 그려지는지 확인
+
+---
+
+## 정리
+
+- OpenGL을 이용하여 삼각형을 그리는 긴 여정
+  - shader object 생성 / 소스 컴파일
+  - program object 생성 / shader link
+  - VAO: VBO의 구조에 대한 description
+  - VBO: 정점 데이터를 GPU 메모리 상에 위치시킨 object
+  - EBO: 인덱스 데이터를 GPU 메모리 상에 위치시킨 object
+
+---
+
+## 정리
+
+- OpenGL을 이용하여 삼각형을 그리는 긴 여정
+  - 대부분의 OpenGL object는 `glBindXX()`라는 함수를 이용하여
+    지금부터 사용할 object를 선택한 뒤 이용함
+    - `glBindBuffer()`
+    - `glBindVertexArray()`
+    - `glBindTexture()`
+    - `glBindFramebuffer()`
+    - ...
+
+---
+
+## 정리
+
+- C++ 코드 리팩토링
+  - Smart pointer의 기능을 이용한 리소스 자동 해제
+  - static method / private constructor를 이용한 인스턴스 생성 방식 제한
+  - private member 설정을 통한 수정 권한 제한
+
+---
+
 ## Congratulation!
 ### 수고하셨습니다!

@@ -26,3 +26,15 @@
 - GPU 구조
   - shader core: shader 실행 가능한 작은 프로그래밍 가능한 프로세서, 수백개 달려 있음
   - 각각은 throughput이 작지만,
+
+### 첫번째 숙제
+
+- Git에 익숙해지기
+  - Github 계정 만들기
+  - 컴퓨터에 fork client 설치
+  - Github에 opengl_exercise_01 repository 생성
+    - private repository로 할것
+  - window 띄우는 데모 commit
+  - 프로젝트 생성 과정부터 단계별로 commit을 진행할 것
+  - README.md를 작성하여 빌드 방법에 대해 설명할 것
+  - `rinthel` 계정을 collaborator로 등록할 것
