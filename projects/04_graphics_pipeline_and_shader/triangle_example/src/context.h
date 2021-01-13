@@ -16,6 +16,7 @@ private:
     ProgramUPtr m_program;
 
     uint32_t m_vertexBuffer;
+    uint32_t m_indexBuffer;
     uint32_t m_vertexArrayObject;
 };
 

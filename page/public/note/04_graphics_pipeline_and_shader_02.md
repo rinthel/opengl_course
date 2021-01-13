@@ -256,9 +256,9 @@ void Context::Render() {
 ## Draw Array
 
 - 함수 설명
-  - `glDrawArray(type, offset, count)`
+  - `glDrawArray(primitive, offset, count)`
     - 현재 설정된 program, VBO, VAO로 그림을 그린다
-    - `type`: 그리고자 하는 primitive 타입
+    - `primitive`: 그리고자 하는 primitive 타입
     - `offset`: 그리고자 하는 첫 정점의 index
     - `count`: 그리려는 정점의 총 개수
 
@@ -281,7 +281,153 @@ void Context::Render() {
 
 ---
 
+## 사각형 그리기
+
+- 삼각형을 두 개 그려서 사각형을 만들어보자
+
+```cpp [2-11,14-15]
+bool Context::Init() {
+  float vertices[] = {
+    // first triangle
+    0.5f, 0.5f, 0.0f, // top right
+    0.5f, -0.5f, 0.0f, // bottom right
+    -0.5f, 0.5f, 0.0f, // top left
+    // second triangle
+    0.5f, -0.5f, 0.0f, // bottom right
+    -0.5f, -0.5f, 0.0f, // bottom left
+    -0.5f, 0.5f, 0.0f // top left
+  };
+  glGenBuffers(1, &m_vertexBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 18, vertices,
+    GL_STATIC_DRAW);
+```
+
+---
+
+## 사각형 그리기
+
+- 삼각형을 두 개 그려서 사각형을 만들어보자
+
+```cpp [5]
+void Context::Render() {
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glUseProgram(m_program->Get());
+  glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+```
+
+---
+
+## 실행 결과
+
+- 사각형이 그려지는 것을 확인
+
+![first quad](/opengl_course/note/images/04_first_quad.png)
+
+---
+
+## 사각형 그리기
+
+- 문제점
+  - 사각형을 그리기 위해서는 정점이 4개가 필요
+  - `glDrawArrays()`를 이용하여 그림을 그리려면 정점이 6개가 필요
+  - **정점 2개가 중복된다**
+
+---
+
 ## Element Buffer Object
+
+- Element Buffer Object (EBO)
+  - 정점의 인덱스를 저장할 수 있는 버퍼
+  - 인덱스 버퍼라고도 부름
+  - 정점 정보와 별개로 정점의 인덱스로만 구성된 삼각형 정보를 전달 가능
+  - *indexed drawing*
+
+---
+
+## Element Buffer Object
+
+- 정점은 4개만 선언하고 인덱스 배열을 추가
+
+```cpp
+float vertices[] = {
+  0.5f, 0.5f, 0.0f, // top right
+  0.5f, -0.5f, 0.0f, // bottom right
+  -0.5f, -0.5f, 0.0f, // bottom left
+  -0.5f, 0.5f, 0.0f, // top left
+};
+uint32_t indices[] = { // note that we start from 0!
+  0, 1, 3, // first triangle
+  1, 2, 3, // second triangle
+};
+```
+
+---
+
+## Element Buffer Object
+
+- `Context` 클래스에 인덱스 버퍼로 사용할 멤버 추가
+
+```cpp [2]
+uint32_t m_vertexBuffer;
+uint32_t m_indexBuffer;
+uint32_t m_vertexArrayObject;
+```
+
+---
+
+## Element Buffer Object
+
+- `Context::Init()`에서 VBO/EBO 생성 및 초기화
+
+```cpp [3-9]
+glGenBuffers(1, &m_vertexBuffer);
+glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12,
+  vertices, GL_STATIC_DRAW);
+
+glGenBuffers(1, &m_indexBuffer);
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * 6,
+  indices, GL_STATIC_DRAW);
+```
+
+---
+
+## Element Buffer Object
+
+- `Context::Render()`에서 `glDrawElements()`를 이용
+- 동일한 사각형이 그려지는 것을 확인
+
+```cpp [5-7]
+void Context::Render() {
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glUseProgram(m_program->Get());
+  glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+```
+
+---
+
+## OpenGL Remarks
+
+- `glDrawElements(primitive, count, type, pointer/offset)`
+  - 현재 바인딩된 EBO를 바탕으로 그리기
+  - `primitive`: 그려낼 기본 primitive 타입
+  - `count`: 그리고자 하는 EBO 내 index의 개수
+  - `type`: index의 데이터형
+  - `pointer/offset`: 그리고자 하는 EBO의 첫 데이터로부터의 오프셋
+
+---
+
+## Pritimive Types
+
+![primitives](/opengl_course/note/images/04_primitives.png)
 
 ---
 
