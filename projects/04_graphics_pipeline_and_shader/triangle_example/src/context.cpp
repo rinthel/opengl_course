@@ -8,21 +8,10 @@ ContextUPtr Context::Create() {
 }
 
 void Context::Render() {
-    uint32_t indices[] = { // note that we start from 0!
-        0, 1, 3, // first triangle
-        1, 2, 3, // second triangle
-    };
     glClear(GL_COLOR_BUFFER_BIT);
 
     glUseProgram(m_program->Get());
-    glBindVertexArray(m_vertexArrayObject);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
-    uint32_t err = glGetError();
-    SPDLOG_ERROR("GL error: 0x{:04x}", err);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, indices);
-    glBindVertexArray(0);
-
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
 bool Context::Init() {
@@ -39,13 +28,13 @@ bool Context::Init() {
 
     glGenVertexArrays(1, &m_vertexArrayObject);
     glBindVertexArray(m_vertexArrayObject);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
-    glBindVertexArray(0);
 
     glGenBuffers(1, &m_vertexBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, vertices, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
 
     glGenBuffers(1, &m_indexBuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);

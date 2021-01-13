@@ -71,13 +71,14 @@ private:
 
 - `Context::Init()`에서 VBO 생성 및 정점 데이터를 GPU로 복사
 
-```cpp [7-9]
+```cpp [8-10]
 bool Context::Init() {
   float vertices[] = {
     -0.5f, -0.5f, 0.0f,
     0.5f, -0.5f, 0.0f,
     0.0f, 0.5f, 0.0f,
   };
+
   glGenBuffers(1, &m_vertexBuffer);
   glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, vertices,
@@ -156,14 +157,14 @@ bool Context::Init() {
 
 - `Context` 클래스에 VAO를 담아둘 변수 선언
 
-```cpp [7]
+```cpp [6]
 private:
     Context() {}
     bool Init();
     ProgramUPtr m_program;
 
-    uint32_t m_vertexBuffer;
     uint32_t m_vertexArrayObject;
+    uint32_t m_vertexBuffer;
 };
 ```
 
@@ -173,13 +174,14 @@ private:
 
 - `Context::Init()`에서 VAO 생성 및 설정
 
-```cpp [5-8]
+```cpp [1-2, 8-9]
+glGenVertexArrays(1, &m_vertexArrayObject);
+glBindVertexArray(m_vertexArrayObject);
+
 glGenBuffers(1, &m_vertexBuffer);
 glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
 glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, vertices, GL_STATIC_DRAW);
 
-glGenVertexArrays(1, &m_vertexArrayObject);
-glBindVertexArray(m_vertexArrayObject);
 glEnableVertexAttribArray(0);
 glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
 ```
@@ -205,6 +207,16 @@ glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
     - `normalized`: 0~1사이의 값인가
     - `stride`: 두 정점간의 간격 (byte 단위)
     - `offset`: 첫 정점의 헤당 attribute까지의 간격 (byte 단위)
+
+---
+
+## Vertex Array Object
+
+- 순서 주의
+  - VAO binding
+  - **VBO binding**
+  - vertex attribute setting
+  - vertex attribute을 설정하기 전에 VBO가 바인딩 되어있을 것
 
 ---
 
@@ -297,8 +309,8 @@ bool Context::Init() {
     -0.5f, -0.5f, 0.0f, // bottom left
     -0.5f, 0.5f, 0.0f // top left
   };
-  glGenBuffers(1, &m_vertexBuffer);
-  glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+
+  // ...
   glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 18, vertices,
     GL_STATIC_DRAW);
 ```
@@ -370,10 +382,10 @@ uint32_t indices[] = { // note that we start from 0!
 
 - `Context` 클래스에 인덱스 버퍼로 사용할 멤버 추가
 
-```cpp [2]
+```cpp [3]
+uint32_t m_vertexArrayObject;
 uint32_t m_vertexBuffer;
 uint32_t m_indexBuffer;
-uint32_t m_vertexArrayObject;
 ```
 
 ---
@@ -382,11 +394,13 @@ uint32_t m_vertexArrayObject;
 
 - `Context::Init()`에서 VBO/EBO 생성 및 초기화
 
-```cpp [3-9]
+```cpp [3,8-11]
 glGenBuffers(1, &m_vertexBuffer);
 glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
-glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12,
-  vertices, GL_STATIC_DRAW);
+glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, vertices, GL_STATIC_DRAW);
+
+glEnableVertexAttribArray(0);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
 
 glGenBuffers(1, &m_indexBuffer);
 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
@@ -401,13 +415,11 @@ glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * 6,
 - `Context::Render()`에서 `glDrawElements()`를 이용
 - 동일한 사각형이 그려지는 것을 확인
 
-```cpp [5-7]
+```cpp [5]
 void Context::Render() {
   glClear(GL_COLOR_BUFFER_BIT);
 
   glUseProgram(m_program->Get());
-  glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 ```
