@@ -37,7 +37,8 @@ function Home() {
           <li><Link to="04_graphics_pipeline_and_shader_01">Part 1</Link></li>
           <li><Link to="04_graphics_pipeline_and_shader_02">Part 2</Link></li>
         </ul>
-        <li><Link to="05_glsl_grammar_and_texture">5. GLSL Grammar and Texture</Link></li>
+        <li><Link to="05_glsl">5. GLSL</Link></li>
+        <li><Link to="06_texture">6. Texture</Link></li>
       </ul>
       <h3>문의</h3>
       <h4>권지용 (rinthel AT gmail.com)</h4>

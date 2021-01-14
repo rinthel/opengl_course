@@ -72,26 +72,27 @@ Computer Graphics with OpenGL
 2. Computer graphics + OpenGL
 3. Development Environment
 4. Graphics Pipeline and Shader
-5. GLSL Grammar and Texture
+5. GLSL
+6. Texture
 
 ---
 
 ## Syllabus
 
-6. Transformation and Camera
-7. ImGui
-8. Lighting
-9. Object loading
-10. Advanced Feature (1)
+7. Transformation
+8. ImGui
+9. Lighting
+10. Object loading
+11. Advanced Feature (1)
+12. Advanced Feature (2)
 
 ---
 
 ## Syllabus
 
-11. Advanced Feature (2)
-12. Advanced Lighting (1)
-13. AdVanced Lighting (2)
-14. Physics-Based Rendering
+13. Advanced Lighting (1)
+14. AdVanced Lighting (2)
+15. Physics-Based Rendering
 
 ---
 
