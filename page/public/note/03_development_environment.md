@@ -129,7 +129,7 @@ int main(int argc, const char** argv) {
 - `CMakeLists.txt` 파일 작성
 
 ```cmake
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 set(PROJECT_NAME cmake_project_example)
 set(CMAKE_CXX_STANDARD 17)
@@ -440,7 +440,7 @@ set(DEP_LIBS ${DEP_LIBS} spdlog$<$<CONFIG:Debug>:d>)
 - `CMakeLists.txt` 파일에서 `Dependency.cmake` 불러오기
 
 ```cmake
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 set(PROJECT_NAME cmake_project_example)
 set(CMAKE_CXX_STANDARD 17)

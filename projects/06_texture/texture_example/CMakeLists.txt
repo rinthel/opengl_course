@@ -1,10 +1,18 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(PROJECT_NAME cmake_project_example)
+set(PROJECT_NAME texture_example)
 set(CMAKE_CXX_STANDARD 17)
 
 project(${PROJECT_NAME})
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME}
+    src/main.cpp
+    src/common.cpp src/common.h
+    src/shader.cpp src/shader.h
+    src/program.cpp src/program.h
+    src/context.cpp src/context.h
+    src/buffer.cpp src/buffer.h
+    src/vertex_layout.cpp src/vertex_layout.h
+    )
 
 include(Dependency.cmake)
 
@@ -15,3 +23,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${DEP_LIBS})
 
 # Dependency들이 먼저 build 될 수 있게 관계 설정
 add_dependencies(${PROJECT_NAME} ${DEP_LIST})
+
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PUBLIC /wd4819)
+endif()
