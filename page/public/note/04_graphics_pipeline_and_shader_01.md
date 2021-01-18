@@ -1195,6 +1195,7 @@ if (!context) {
 ## `Context` 클래스 사용
 
 - 메인 루프에서 이전의 `Render()` 대신 `Context`의 `Render()` 호출
+- 메인 루푸 종료 후 `std::unique_ptr`의 `reset()`을 호출하여 메모리 정리
 - 빌드 및 실행후 파란 화면 / 로그 확인
 
 ```cpp
@@ -1204,6 +1205,7 @@ while (!glfwWindowShouldClose(window)) {
   glfwSwapBuffers(window);
   glfwPollEvents();
 }
+context.reset();
 ```
 
 ---

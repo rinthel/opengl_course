@@ -80,6 +80,7 @@ int main(int argc, const char** argv) {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+    context.reset();
 
     glfwTerminate();
     return 0;
