@@ -39,6 +39,7 @@ function Home() {
         </ul>
         <li><Link to="05_glsl">5. GLSL</Link></li>
         <li><Link to="06_texture">6. Texture</Link></li>
+        <li><Link to="07_transformation">7. Transformation</Link></li>
       </ul>
       <h3>문의</h3>
       <h4>권지용 (rinthel AT gmail.com)</h4>
