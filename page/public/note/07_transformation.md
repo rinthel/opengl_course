@@ -29,6 +29,8 @@
 - 벡터의 크기 (길이) 계산
   - 각 좌표값의 제곱의 합의 제곱근
   - (4, 2) 벡터의 길이
+- 단위 벡터 (unit vector)
+  - 길이가 1인 벡터
 
 ![vector length](/opengl_course/note/images/07_vector_length.png)
 
@@ -107,6 +109,19 @@
 
 ---
 
+## Homogeneous Coordinates
+
+- 동차 좌표계
+- 표현하고자 하는 차원수보다 1차원 늘어난 벡터로 좌표를 표시하는 방법
+  - 마지막 원소 값을 1로 두면 **점**을 표현
+  - 3D 좌표 (x, y, z)는 4차원 벡터 (x, y, z, 1)
+  - 동차 좌표계에서 (wx, wy, wz, w)는 (x, y, z, 1)과 같은 위치
+- 이렇게 하는 이유
+  - 평행 이동을 선형 변환으로 표현할 수 있게 됨
+  - 원근 투영을 선형 변환으로 표현할 수 있게 됨
+
+---
+
 ## Identity Matrix
 
 - 단위 행렬
@@ -116,6 +131,92 @@
 - 출력 벡터는 입력 벡터와 동일해진다
 
 ![identity matrix](/opengl_course/note/images/07_identity_matrix.png)
+
+---
+
+## Scaling
+
+- 원점을 기준으로 벡터의 크기를 확대하거나 축소
+- 대각 성분에 각 차원별 배율을 지정한 행렬로 표현
+
+![scaling](/opengl_course/note/images/07_scaling.png)
+
+---
+
+## Translation
+
+- 평행이동 행렬
+- 4번째 열 벡터에 평행이동 벡터를 가진 행렬로 표현
+
+![translation](/opengl_course/note/images/07_translation.png)
+
+---
+
+## Rotation
+
+- x축에 대한 회전
+
+![rotation x](/opengl_course/note/images/07_rotation_x.png)
+
+---
+
+## Rotation
+
+- y축에 대한 회전
+
+![rotation y](/opengl_course/note/images/07_rotation_y.png)
+
+---
+
+## Rotation
+
+- z축에 대한 회전
+
+![rotation z](/opengl_course/note/images/07_rotation_z.png)
+
+---
+
+## Rotation
+
+- 임의의 축 (Rx, Ry, Rz)에 대한 회전
+
+![rotation axis](/opengl_course/note/images/07_rotation_axis.png)
+
+---
+
+## Combine Matrices
+
+- 주어진 벡터를 2배로 확대한 다음 (1, 2, 3)만큼 평행이동 시키는 행렬
+
+![combine_matrices](/opengl_course/note/images/07_combine_matrices.png)
+
+- 선형 변환은 하나의 행렬로 나타내지므로, 여러 선형 변환을 연속으로
+  적용시키는 것은 행렬 곱으로 만들어진 하나의 선형 변환으로 나타낼 수 있다
+
+---
+
+## C++ 행렬 / 벡터 연산
+
+- GLSL의 경우 내부적으로 행렬 및 벡터과 관련된 다양한 기능 및 내부 함수 제공
+- C++에는 기본적인 수학적 연산 외에 선형대수 관련 기능은 제공하지 않음
+  - 라이브러리를 이용하자
+
+---
+
+## C++ 행렬 / 벡터 연산
+
+- C++ 선형대수 라이브러리
+  - Eigen3: 가장 많이 사용되는 C++ 선형대수 라이브러리
+    - 일반적인 N차원 선형대수 연산
+  - **GLM**: OpenGL Math 라이브러리
+    - 3D 그래픽스에 필요한 4차원 선형대수 연산
+
+---
+
+## 예제 준비
+
+- `texture_example` 프로젝트를 복사하여 `transformation_example` 준비
+- 프로젝트명 변경 및 빌드 확인
 
 ---
 
