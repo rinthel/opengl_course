@@ -568,11 +568,319 @@ m_texture = Texture::CreateFromImage(image.get());
 
 ---
 
-## Mipmap
+## More on Filtering
+
+- 체커 이미지를 만들어보자
+
+```cpp [5, 13, 18]
+CLASS_PTR(Image)
+class Image {
+public:
+    static ImageUPtr Load(const std::string& filepath);
+    static ImageUPtr Create(int width, int height, int channelCount = 4);
+    ~Image();
+
+    const uint8_t* GetData() const { return m_data; }
+    int GetWidth() const { return m_width; }
+    int GetHeight() const { return m_height; }
+    int GetChannelCount() const { return m_channelCount; }
+
+    void SetCheckImage(int gridX, int gridY);
+    
+private:
+    Image() {};
+    bool LoadWithStb(const std::string& filepath);
+    bool Allocate(int width, int height, int channelCount);
+    int m_width { 0 };
+    int m_height { 0 };
+    int m_channelCount { 0 };
+    uint8_t* m_data { nullptr };
+};
+```
+---
+
+## More on Filtering
+
+- 이미지를 위한 메모리 할당 함수 구현
+
+```cpp
+ImageUPtr Image::Create(int width, int height, int channelCount) {
+    auto image = ImageUPtr(new Image());
+    if (!image->Allocate(width, height, channelCount))
+        return nullptr;
+    return std::move(image);
+}
+
+bool Image::Allocate(int width, int height, int channelCount) {
+    m_width = width;
+    m_height = height;
+    m_channelCount = channelCount;
+    m_data = (uint8_t*)malloc(m_width * m_height * m_channelCount);
+    return m_data ? true : false;
+}
+```
 
 ---
 
-## Multiple Texture
+## More on Filtering
+
+- 체커 이미지 설정 함수
+  - `gridX`, `gridY` 크기의 흑백 타일로 구성된 체커 보드 이미지
+  - 알파 체널은 항상 255로 설정
+
+```cpp
+void Image::SetCheckImage(int gridX, int gridY) {
+    for (int j = 0; j < m_height; j++) {
+        for (int i = 0; i < m_width; i++) {
+            int pos = (j * m_width + i) * m_channelCount;
+            bool even = ((i / gridX) + (j / gridY)) % 2 == 0;
+            uint8_t value = even ? 255 : 0;
+            for (int k = 0; k < m_channelCount; k++)
+                m_data[pos + k] = value;
+            if (m_channelCount > 3)
+                m_data[3] = 255;
+        }
+    }
+}
+```
+
+---
+
+## More on Filtering
+
+- 체커 이미지를 `Context::Init()`에서 텍스처 설정에 사용
+
+```cpp [1-2]
+auto image = Image::Create(512, 512);
+image->SetCheckImage(16, 16);
+
+m_texture = Texture::CreateFromImage(image.get());
+```
+
+---
+
+## More on Filtering
+
+- 빌드 및 실행
+
+![checker normal](/opengl_course/note/images/06_checker_normal.png)
+
+---
+
+## More on Filtering
+
+- 창의 크기를 축소하면 예기치 않은 무늬가 생김
+
+![checker normal](/opengl_course/note/images/06_checker_small.png)
+
+---
+
+## More on Filtering
+
+- 이런 현상이 발생하는 이유
+  - 화면에 그리는 픽셀보다 텍스처 픽셀의 영역이 커지면 linear filter로도 충분
+  - 화면에 그리는 픽셀이 여러 텍스처 픽셀을 포함하게되면 문제가 발생
+
+---
+
+## Mipmap
+
+- Mipmap
+  - 화면 픽셀이 여러 텍스처 픽셀을 포함하게 될 경우를 위해서
+    작은 사이즈의 이미지를 미리 준비하는 기법
+
+![mipmap](/opengl_course/note/images/06_mipmap.png)
+
+---
+
+## Mipmap
+
+- Mipmap
+  - 가장 큰 이미지를 기본 레벨 0으로 함
+  - 가로세로 크기를 절반씩 줄인 이미지를 미리 계산하여 레벨을 1씩 증가시키며 저장
+    - 512x512 이미지 => level 0~9까지 생성
+  - 원본 이미지 저장을 위해 필요한 메모리보다 1/3 만큼을 더 소요
+
+---
+
+## Mipmap in OpenGL
+
+- `Texture` 클래스의 구현 변경
+
+```cpp [5]
+void Texture::CreateTexture() {
+    glGenTextures(1, &m_texture);
+    // bind and set default filter and wrap option
+    Bind();
+    SetFilter(GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+    SetWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+}
+```
+
+---
+
+## Mipmap in OpenGL
+
+- `Texture` 클래스의 구현 변경
+
+```cpp [15]
+void Texture::SetTextureFromImage(const Image* image) {
+    GLenum format = GL_RGBA;
+    switch (image->GetChannelCount()) {
+        default: break;
+        case 1: format = GL_RED; break;
+        case 2: format = GL_RG; break;
+        case 3: format = GL_RGB; break;
+    }
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+        image->GetWidth(), image->GetHeight(), 0,
+        format, GL_UNSIGNED_BYTE,
+        image->GetData());
+
+    glGenerateMipmap(GL_TEXTURE_2D);
+}
+```
+
+---
+
+## Mipmap in OpenGL
+
+- 빌드 및 실행
+  - 창의 크기를 줄였을 때 발생되는 무늬가 없어지는 것을 확인
+
+![mipmap](/opengl_course/note/images/06_checker_mipmap.png)
+
+---
+
+## Additional Notes
+
+- Mipmap 필터 옵션의 의미
+  - `GL_NEAREST_MIPMAP_NEAREST`: 적합한 레벨의 텍스처를 선택한 뒤
+    nearest neighbor 픽셀을 선택한다
+  - `GL_LINEAR_MIPMAP_LINEAR`: 적합한 두 레벨의 텍스처에서
+    linear filtering된 값을 다시 linear interpolation한다
+    (trilinear interpolation)
+
+---
+
+## Multiple Textures
+
+- 하나의 shader program에서 여러 장의 텍스처 이용하기
+  - [learnopengl.com/.../awesomeface.png](https://learnopengl.com/img/textures/awesomeface.png)
+  - `image/awesomeface.png`에 저장
+
+<img src="https://learnopengl.com/img/textures/awesomeface.png" width="30%"/>
+
+---
+
+## Multiple Textures
+
+- `Context` 클래스에 텍스처 멤버를 추가하고 텍스처 이미지 생성
+
+```cpp [3]
+    // ... Context class declaration
+    TextureUPtr m_texture;
+    TextureUPtr m_texture2;
+};
+```
+
+```cpp [4-5]
+// ... Context::Init()
+m_texture = Texture::CreateFromImage(image.get());
+
+auto image2 = Image::Load("./image/awesomeface.png");
+m_texture2 = Texture::CreateFromImage(image2.get());
+```
+
+---
+
+## Multiple Textures
+
+- 빌드 및 실행
+  - 제일 마지막에 초기화한 텍스처가 그려짐
+
+![mipmap](/opengl_course/note/images/06_awesome_face.png)
+
+---
+
+## Multiple Textures
+
+- Fragment shader 코드 수정
+  - 두 개의 sampler2D를 사용
+  - 두 sampler2D로부터 얻어온 텍스처 컬러를 4 : 1 비율로 블랜딩
+
+```glsl
+#version 330 core
+in vec4 vertexColor;
+in vec2 texCoord;
+out vec4 fragColor;
+
+uniform sampler2D tex;
+uniform sampler2D tex2;
+
+void main() {
+    fragColor = texture(tex, texCoord) * 0.8 +
+        texture(tex2, texCoord) * 0.2;
+}
+```
+
+---
+
+## Multiple Textures
+
+- 텍스처를 shader program에 올바르게 제공하는 방법
+  - `glActiveTexture(textureSlot)` 함수로 현재 다루고자 하는 텍스처 슬롯을 선택
+  - `glBindTexture(textureType, textureId)` 함수로 현재
+    설정중인 텍스처 슬롯에 우리의 텍스처 오브젝트를 바인딩
+  - `glGetUniformLocation()` 함수로 shader 내의 sampler2D uniform 핸들을 얻어옴
+  - `glUniform1i()` 함수로 sampler2D uniform에 **텍스처 슬롯 인덱스**를 입력
+
+---
+
+## Multiple Textures
+
+- `Context::Init()`에 다음을 추가
+
+```cpp
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, m_texture->Get());
+glActiveTexture(GL_TEXTURE1);
+glBindTexture(GL_TEXTURE_2D, m_texture2->Get());
+
+m_program->Use();
+glUniform1i(glGetUniformLocation(m_program->Get(), "tex"), 0);
+glUniform1i(glGetUniformLocation(m_program->Get(), "tex2"), 1);
+```
+
+---
+
+## Multiple Textures
+
+- 빌드 및 실행
+
+![multiple texture](/opengl_course/note/images/06_multiple_texture.png)
+
+---
+
+## Additional Notes
+
+- 이미지 상하 반전의 이유
+  - 보통의 이미지는 좌상단을 원점으로 함
+  - OpenGL은 좌하단을 원점으로 함
+  - 이미지 로딩시 상하를 반전시켜서 문제를 해결할 수 있음
+
+```cpp [2]
+bool Image::LoadWithStb(const std::string& filepath) {
+    stbi_set_flip_vertically_on_load(true);
+    m_data = stbi_load(filepath.c_str(), &m_width, &m_height, &m_channelCount, 0);
+    if (!m_data) {
+        SPDLOG_ERROR("failed to load image: {}", filepath);
+        return false;
+    }
+    return true;
+}
+```
 
 ---
 
