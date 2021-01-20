@@ -65,6 +65,18 @@
 
 ## Vector Multiplication
 
+- 내적의 응용법
+  - 사잇각 구하기: theta = acos(v * w / (|v|*|w|))
+  - 두 벡터가 수직인 경우 내적의 값은 0
+
+- 외적의 주요 응용법
+  - 두 3차원 벡터와 수직하는 벡터 구하기
+  - Orthogonalization
+
+---
+
+## Vector Multiplication
+
 ![vector cross product figure](/opengl_course/note/images/07_vector_cross_product_figure.png)
 
 ![vector cross product](/opengl_course/note/images/07_vector_cross_product.png)
@@ -184,6 +196,19 @@
 
 ---
 
+## Orthogonal Matrix
+
+- 다음의 조건을 만족하는 행렬
+  - 각 column vector (혹은 row vector) 의 길이가 1
+  - column vector 간의 내적값이 0 (수직)
+
+- Orthogonal Matrix
+  - inv(A) = transpose(A)
+
+- Rotation matrix는 Orthogonal matrix
+
+---
+
 ## Combine Matrices
 
 - 주어진 벡터를 2배로 확대한 다음 (1, 2, 3)만큼 평행이동 시키는 행렬
@@ -217,6 +242,202 @@
 
 - `texture_example` 프로젝트를 복사하여 `transformation_example` 준비
 - 프로젝트명 변경 및 빌드 확인
+
+---
+
+## glm Dependency
+
+- `Dependency.cmake`에 다음을 추가
+
+```cpp
+# glm
+ExternalProject_Add(
+  dep_glm
+  GIT_REPOSITORY "https://github.com/g-truc/glm"
+  GIT_TAG "0.9.9.8"
+  GIT_SHALLOW 1
+  UPDATE_COMMAND ""
+  PATCH_COMMAND ""
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND ""
+  TEST_COMMAND ""
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${PROJECT_BINARY_DIR}/dep_glm-prefix/src/dep_glm/glm
+    ${DEP_INSTALL_DIR}/include/glm
+  )
+set(DEP_LIST ${DEP_LIST} dep_glm)
+```
+
+---
+
+## glm Dependency
+
+- `src/common.h`에 glm 라이브러리 헤더 추가
+
+```cpp [4-6]
+#include <glad/glad.h>
+#include <glfw/glfw3.h>
+#include <spdlog/spdlog.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+```
+
+---
+
+## glm test
+
+- `Context::Init()` 내에서 glm을 사용한 벡터 및 행렬 연산 테스트
+
+```cpp
+// 위치 (1, 0, 0)의 점. 동차좌표계 사용
+glm::vec4 vec(1.0f,  0.0f, 0.0f, 1.0f);
+// 단위행렬 기준 (1, 1, 0)만큼 평행이동하는 행렬
+auto trans = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.0f));
+// 단위행렬 기준 z축으로 90도만큼 회전하는 행렬
+auto rot = glm::rotate(glm::mat4(1.0f),
+  glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+// 단위행렬 기준 모든 축에 대해 3배율 확대하는 행렬
+auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f));
+// 확대 -> 회전 -> 평행이동 순으로 점에 선형 변환 적용
+vec = trans * rot * scale * vec;
+SPDLOG_INFO("transformed vec: [{}, {}, {}]", vec.x, vec.y, vec.z);
+```
+
+```console
+[2021-01-20 12:29:56.358] [info] [context.cpp:95] transformed vec: [0.9999999, 4, 0]
+```
+
+---
+
+## Vertex Transformation
+
+- 정점에 대한 변환의 일반적인 방식
+  - VBO 상의 정점은 고정
+  - vertex shader에서 변환 행렬을 uniform으로 입력
+  - vertex shader 내에서 행렬곱 계산
+
+---
+
+## Vertex Transformation
+
+- `shader/texture.vs` 수정
+
+```glsl [6,12]
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+
+out vec4 vertexColor;
+out vec2 texCoord;
+
+void main() {
+    gl_Position = transform * vec4(aPos, 1.0);
+    vertexColor = vec4(aColor, 1.0);
+    texCoord = aTexCoord;
+}
+```
+
+---
+
+## Vertex Transformation
+
+- `Context::Init()`에서 `transform`에 유니폼 값 전달
+
+```cpp
+// 0.5배 축소후 z축으로 90도 회전하는 행렬
+auto transform = glm::rotate(
+    glm::scale(glm::mat4(1.0f), glm::vec3(0.5f)),
+    glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)
+    );
+auto transformLoc = glGetUniformLocation(m_program->Get(), "transform");
+glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+```
+
+---
+
+## Vertex Transformation
+
+- 빌드 및 실행
+  - 행렬값을 바꿔보면서 어떻게 변하는지 실험해보자
+
+<img src="/opengl_course/note/images/07_first_transform_example.png" width="45%" />
+
+---
+
+## Coordinate System
+
+- 좌표계
+  - 어떤 정점의 위치를 기술하기 위한 기준
+  - 선형 변환은 **한 좌표계로 기술된 벡터를 다른 좌표계에 대해
+    기술하는 변환**으로 해석할 수 있음
+
+---
+
+## Coordinate System Explained
+
+- 기준이 되는 전역 좌표계 W
+- v = [5, 4]
+
+<div>
+<img src="/opengl_course/note/images/07_coordinate_explain_01.png" width="25%" />
+</div>
+
+---
+
+## Coordinate System Explained
+
+- 좌표계 W와 [3, 3] 만큼 떨어져 있는 지역 좌표계 L
+- L을 기준으로한 v = [2, 1]
+
+<div>
+<img src="/opengl_course/note/images/07_coordinate_explain_02.png" width="25%" />
+</div>
+
+---
+
+## Coordinate System Explained
+
+- [2, 1]을 [3, 3] 만큼 평행이동 시킨다 =>
+- L을 기준으로 [2, 1]에 위치한 점은 W를 기준으로 [3, 3]만큼 평행이동되어 있다
+
+<div>
+<img src="/opengl_course/note/images/07_coordinate_explain_02.png" width="25%" />
+</div>
+
+---
+
+## Coordinate System Explained
+
+- 좌표계 W와 [5, 2]만큼 떨어져 있고 z축 방향으로 45도 회전한 지역 좌표계 L
+- L을 기준으로 기술된 v의 위치: [1.414.., 1.414..]
+
+<div>
+<img src="/opengl_course/note/images/07_coordinate_explain_03.png" width="25%" />
+</div>
+
+---
+
+## Coordinate System
+
+- 자주 사용되는 좌표계 용어
+  - World space
+  - Local (Object) space
+  - View (Eye) scale
+  - Screen space
+
+---
+
+## Coordinate System
+
+- 좌표 공간 간의 변환
+  - OpenGL은 그림을 그릴 공간을 결국 [-1, 1] 사이의
+    normalized 된 공간으로 만든다
+  - Local space로 기술된 Object를 World space ->
+    View space -> Screen space로 변환
 
 ---
 
