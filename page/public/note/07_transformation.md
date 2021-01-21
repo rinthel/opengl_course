@@ -434,10 +434,267 @@ glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 ## Coordinate System
 
 - 좌표 공간 간의 변환
-  - OpenGL은 그림을 그릴 공간을 결국 [-1, 1] 사이의
-    normalized 된 공간으로 만든다
-  - Local space로 기술된 Object를 World space ->
-    View space -> Screen space로 변환
+  - OpenGL의 그림이 그려지는 공간:
+    - [-1, 1] 범위로 normalized된 공간
+    - Canonical space
+  - Object들은 Local space를 기준으로 기술
+  - Local space -> World space ->
+    View space -> Canonical space로 변환
+
+---
+
+## Coordinate System
+
+![transform process](/opengl_course/note/images/07_transform_process.png)
+
+---
+
+## Coordinate System
+
+- Transform Matrix
+  - Model: Local을 World로
+  - View: World를 Camera로
+  - Projection: Camera를 Canonical로
+  - Clip space에서 [-1, 1] 범위 밖으로 벗어난 면들은 clipping
+
+---
+
+## Orthogonal Projection
+
+- 직교 투영
+  - 원근감 없이 평행한 선이 계속 평행하도록 투영하는 방식
+  - 설계 도면 등을 그려낼때 때 유용
+
+<div>
+<img src="/opengl_course/note/images/07_orthogonal_projection.png" width="35%" />
+</div>
+
+---
+
+## Orthogonal Projection
+
+- 직교 투영
+  - 6개 파라미터: left, right, bottom, top, near, far
+  - z축에 -1: Clip space 이후에는 오른손 좌표계에서 왼손 좌표계로 변경
+
+<div>
+<img src="/opengl_course/note/images/07_orthogonal_projection_matrix.png" width="25%" style="background: white; padding: 10px"/>
+</div>
+
+---
+
+## Orthogonal Projection
+
+- 오른손 좌표계 / 왼손 좌표계
+  - x축, y축을 화면의 오른/위 방향으로 했을때
+  - 오른손 좌표계: z축이 화면에서부터 **나오는** 방향
+  - 왼손 좌표계: z축이 화면으로 **들어가는** 방향
+
+<div>
+<img src="/opengl_course/note/images/07_left_and_right_hand.png" width="35%"/>
+</div>
+
+---
+
+## Perspective Projection
+
+- 원근 투영
+  - 변환 이전에 평행한 선이 변환 후에 한점에서 만남 (소실점)
+  - 멀리 있을 수록 물체가 작아져 원근감이 발생
+
+<div>
+<img src="/opengl_course/note/images/07_perspective_projection.png" width="35%"/>
+</div>
+
+---
+
+## Perspective Projection
+
+- 원근 투영
+  - 4개의 파라미터
+    - 종횡비 (aspect ratio)
+    - 화각 (field of view, FoV)
+    - near, far
+
+<div>
+<img src="/opengl_course/note/images/07_perspective_projection_matrix.jpg" width="50%" style="background: white; padding:10px"/>
+</div>
+
+---
+
+## Transformation
+
+- 모든 변환의 조합
+  - Local space를 기준으로 한 좌표 V의 Clip space에서의 좌표는?
+  - 합쳐서 MVP (model-view-projection) matrix라고도 함
+
+<div>
+<img src="/opengl_course/note/images/07_all_transform.png" width="60%"/>
+</div>
+
+---
+
+## 3D Transformation
+
+- `Context::Init()`에 코드를 수정
+
+```cpp
+// x축으로 -55도 회전
+auto model = glm::rotate(glm::mat4(1.0f),
+  glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+// 카메라는 원점으로부터 z축 방향으로 -3만큼 떨어짐
+auto view = glm::translate(glm::mat4(1.0f),
+  glm::vec3(0.0f, 0.0f, -3.0f));
+// 종횡비 4:3, 세로화각 45도의 원근 투영
+auto projection = glm::perspective(glm::radians(45.0f),
+  (float)640 / (float)480, 0.01f, 10.0f);
+auto transform = projection * view * model;
+auto transformLoc = glGetUniformLocation(m_program->Get(), "transform");
+```
+
+---
+
+## 3D Transformation
+
+- 빌드 및 실행
+
+![3d transform example](/opengl_course/note/images/07_3d_transform_example.png)
+
+---
+
+## More 3D
+
+- 큐브 그리기
+
+```cpp
+float vertices[] = {
+  -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+   0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
+   0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+  -0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
+
+  -0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+   0.5f, -0.5f,  0.5f, 1.0f, 0.0f,
+   0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
+  -0.5f,  0.5f,  0.5f, 0.0f, 1.0f,
+
+  -0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+  -0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+  -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+  -0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+
+   0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+   0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+   0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+   0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+
+  -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+   0.5f, -0.5f, -0.5f, 1.0f, 1.0f,
+   0.5f, -0.5f,  0.5f, 1.0f, 0.0f,
+  -0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+
+  -0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
+   0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+   0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+  -0.5f,  0.5f,  0.5f, 0.0f, 0.0f,
+};
+
+uint32_t indices[] = {
+   0,  1,  2,  2,  3,  0,
+   4,  5,  6,  6,  7,  4,
+   8,  9, 10, 10, 11,  8,
+  12, 13, 14, 14, 15, 12,
+  16, 17, 18, 18, 19, 16,
+  20, 21, 22, 22, 23, 20,
+};
+```
+
+---
+
+## More 3D
+
+- 큐브 그리기
+
+```cpp [4, 6-7, 11]
+m_vertexLayout = VertexLayout::Create();
+m_vertexBuffer = Buffer::CreateWithData(
+  GL_ARRAY_BUFFER, GL_STATIC_DRAW,
+  vertices, sizeof(float) * 120);
+
+m_vertexLayout->SetAttrib(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, 0);
+m_vertexLayout->SetAttrib(2, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, sizeof(float) * 3);
+
+m_indexBuffer = Buffer::CreateWithData(
+    GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW,
+    indices, sizeof(uint32_t) * 36);
+```
+
+---
+
+## More 3D
+
+- 큐브 그리기
+
+```cpp [4]
+void Context::Render() {
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+}
+```
+
+---
+
+## More 3D
+
+- 빌드 및 실행 결과
+  - 박스의 뒷면이 앞면을 덮어서 그려짐
+
+![no depth test](/opengl_course/note/images/07_no_depth_test_cube.png)
+
+---
+
+## Depth Buffer
+
+- Z 버퍼 (Z buffer) 라고도 함
+- 각 픽셀의 컬러 값을 저장하는 버퍼 외에, 해당 픽셀의 깊이값 (z축값)을 저장
+- 깊이 테스트 (Depth test)
+  - 어떤 픽셀의 값을 업데이트 하기 전, 현재 그리려는 픽셀의 z값과
+    깊이 버퍼에 저장된 해당 위치의 z값을 비교해 봄
+  - 비교 결과 현재 그리려는 픽셀이 이전에 그려진 픽셀보다 뒤에 있을 경우
+    픽셀을 그리지 않음
+
+---
+
+## Depth Test in OpenGL
+
+- OpenGL의 Depth Buffer 초기값은 1
+- 1이 가장 뒤에 있고, 0이 가장 앞을 의미 (왼손 좌표계)
+- `glEnable(GL_DEPTH_TEST)` / `glDisable(GL_DEPTH_TEST)`로 깊이 테스트를 켜고 끌 수 있음
+- `glDepthFunc()`을 이용하여 깊이 테스트 통과 조건을 변경할 수 있음
+- 깊이 테스트 통과 조건의 기본값은 `GL_LESS`
+
+---
+
+## Depth Test in OpenGL
+
+- `Context::Render()` 코드 수정
+
+```cpp [2-3]
+void Context::Render() {
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glEnable(GL_DEPTH_TEST);
+  glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+}
+```
+
+---
+
+## Depth Test in OpenGL
+
+- 빌드 및 실행
+
+![depth test](/opengl_course/note/images/07_depth_test_cube.png)
 
 ---
 
