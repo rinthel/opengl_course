@@ -698,5 +698,213 @@ void Context::Render() {
 
 ---
 
+## Refactoring Uniform
+
+- `Program` 클래스에 uniform 값을 설정하는 메소드 추가
+
+```cpp
+// ... in Program class declaration
+void SetUniform(const std::string& name, int value) const;
+void SetUniform(const std::string& name, const glm::mat4& value) const;
+```
+
+```cpp
+// program.cpp
+void Program::SetUniform(const std::string& name, int value) const {
+  auto loc = glGetUniformLocation(m_program, name.c_str());
+  glUniform1i(loc, value);
+}
+
+void Program::SetUniform(const std::string& name,
+  const glm::mat4& value) const {
+  auto loc = glGetUniformLocation(m_program, name.c_str());
+  glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(value));
+}
+```
+
+---
+
+## Refactoring Uniform
+
+- `Context::Init()`에 사용된 `glUniform` 대신 `Program::SetUniform` 사용
+
+```cpp [2-3,8]
+m_program->Use();
+m_program->SetUniform("tex", 0);
+m_program->SetUniform("tex2", 1);
+
+// ...
+
+auto transform = projection * view * model;
+m_program->SetUniform("transform", transform);
+```
+
+---
+
+## Transformation on Every Frame
+
+- transform의 지정을 매 프레임 해보자
+
+```cpp
+void Context::Render() {
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  auto projection = glm::perspective(glm::radians(45.0f),
+      (float)640 / (float)480, 0.01f, 10.0f);
+  auto view = glm::translate(glm::mat4(1.0f),
+      glm::vec3(0.0f, 0.0f, -3.0f));
+  auto model = glm::rotate(glm::mat4(1.0f),
+      glm::radians((float)glfwGetTime() * 120.0f),
+      glm::vec3(1.0f, 0.5f, 0.0f));
+  auto transform = projection * view * model;
+  m_program->SetUniform("transform", transform);
+
+  glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+}
+```
+
+---
+
+## Multiple Cube
+
+- 여러 개의 큐브를 그려보자
+
+```cpp
+void Context::Render() {
+    std::vector<glm::vec3> cubePositions = {
+        glm::vec3( 0.0f, 0.0f, 0.0f),
+        glm::vec3( 2.0f, 5.0f, -15.0f),
+        glm::vec3(-1.5f, -2.2f, -2.5f),
+        glm::vec3(-3.8f, -2.0f, -12.3f),
+        glm::vec3( 2.4f, -0.4f, -3.5f),
+        glm::vec3(-1.7f, 3.0f, -7.5f),
+        glm::vec3( 1.3f, -2.0f, -2.5f),
+        glm::vec3( 1.5f, 2.0f, -2.5f),
+        glm::vec3( 1.5f, 0.2f, -1.5f),
+        glm::vec3(-1.3f, 1.0f, -1.5f),
+    };
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    auto projection = glm::perspective(glm::radians(45.0f),
+        (float)640 / (float)480, 0.01f, 20.0f);
+    auto view = glm::translate(glm::mat4(1.0f),
+        glm::vec3(0.0f, 0.0f, -3.0f));
+
+    for (size_t i = 0; i < cubePositions.size(); i++){
+        auto& pos = cubePositions[i];
+        auto model = glm::translate(glm::mat4(1.0f), pos);
+        model = glm::rotate(model,
+            glm::radians((float)glfwGetTime() * 120.0f + 20.0f * (float)i),
+            glm::vec3(1.0f, 0.5f, 0.0f));
+        auto transform = projection * view * model;
+        m_program->SetUniform("transform", transform);
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    }
+}
+```
+
+---
+
+## Multiple Cube
+
+- 빌드 및 실행
+  - 빙글빙글 도는 여러 개의 큐브
+
+<img src="/opengl_course/note/images/07_multiple_cube.png" width="55%" />
+
+---
+
+## Camera
+
+- Camera/View space
+  - 3D 공간을 어느 시점에서 어떤 방향으로 바라볼 것인가를 결정
+  - 카메라를 조작하기 위한 파라미터로부터 view transform을 유도
+
+![camera space](/opengl_course/note/images/07_camera_space.png)
+
+---
+
+## Camera
+
+- 카메라 파라미터
+  - camera position: 카메라의 위치
+  - camera target: 카메라가 바라보는 중심 위치
+  - camera up vector: 카메라 화면의 세로 축 방향
+
+- 결과 행렬
+  - camera의 local-to-world transform의 inverse
+
+<div>
+<img src="/opengl_course/note/images/07_camera_matrix.gif" width="30%" style="background: white; padding: 10px" />
+</div>
+
+---
+
+## Camera
+
+- 카메라의 3축 결정 과정
+
+<div>
+<img src="/opengl_course/note/images/07_camera_matrix_derive.gif" width="30%" style="background: white; padding: 10px" />
+</div>
+
+---
+
+## Camera
+
+- `Context::Render()`에서 직접 계산해보자
+
+```cpp
+auto cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+auto cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+auto cameraZ = glm::normalize(cameraPos - cameraTarget);
+auto cameraX = glm::normalize(glm::cross(cameraUp, cameraZ));
+auto cameraY = glm::cross(cameraZ, cameraX);
+
+auto cameraMat = glm::mat4(
+  glm::vec4(cameraX, 0.0f),
+  glm::vec4(cameraY, 0.0f),
+  glm::vec4(cameraZ, 0.0f),
+  glm::vec4(cameraPos, 1.0f));
+
+auto view = glm::inverse(cameraMat);
+```
+
+---
+
+## Camera
+
+- 앞의 연산 과정을 해주는 `glm::lookAt` 함수의 활용
+
+```cpp
+auto cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+auto cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+auto view = glm::lookAt(cameraPos, cameraTarget, cameraUp);
+```
+
+---
+
+## Camera
+
+- 주변을 빙글빙글 도는 카메라
+
+```cpp
+float angle = glfwGetTime() * glm::pi<float>() * 0.5f;
+auto x = sinf(angle) * 10.0f;
+auto z = cosf(angle) * 10.0f;
+auto cameraPos = glm::vec3(x, 0.0f, z);
+auto cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+auto cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+auto view = glm::lookAt(cameraPos, cameraTarget, cameraUp);
+```
+
+---
+
 ## Congratulation!
 ### 수고하셨습니다!
