@@ -906,5 +906,415 @@ auto view = glm::lookAt(cameraPos, cameraTarget, cameraUp);
 
 ---
 
+## Interactive Camera
+
+- 카메라 조작을 키보드 / 마우스로 할 수 있게 해보자
+  - W/A/S/D: 전후좌우 이동
+  - 마우스 커서: 카메라 회전
+
+---
+
+## Interactive Camera
+
+- `Context` 클래스에 입력 처리 함수 및 카메라 관련 파라미터 추가
+
+```cpp [4,11-14]
+class Context {
+public:
+  static ContextUPtr Create();
+  void Render();
+  void ProcessInput(GLFWwindow* window);
+
+private:
+
+  // ...
+
+  // camera parameter
+  glm::vec3 m_cameraPos { glm::vec3(0.0f, 0.0f, 3.0f) };
+  glm::vec3 m_cameraFront { glm::vec3(0.0f, 0.0f, -1.0f) };
+  glm::vec3 m_cameraUp { glm::vec3(0.0f, 1.0f, 0.0f) };
+};
+```
+
+---
+
+## Interactive Camera
+
+- `Context::ProcessInput()` 구현
+
+```cpp
+void Context::ProcessInput(GLFWwindow* window) {
+  const float cameraSpeed = 0.05f;
+  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    m_cameraPos += cameraSpeed * m_cameraFront;
+  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    m_cameraPos -= cameraSpeed * m_cameraFront;
+
+  auto cameraRight = glm::normalize(glm::cross(m_cameraUp, -m_cameraFront));
+  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    m_cameraPos += cameraSpeed * cameraRight;
+  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    m_cameraPos -= cameraSpeed * cameraRight;    
+}
+```
+
+---
+
+## Interactive Camera
+
+- `Context::Render()`에서 카메라 파라미터를 이용한 look-at 행렬 계산
+
+```cpp [3-6]
+  auto projection = glm::perspective(glm::radians(45.0f),
+      (float)640 / (float)480, 0.01f, 20.0f);
+  auto view = glm::lookAt(
+      m_cameraPos,
+      m_cameraPos + m_cameraFront,
+      m_cameraUp);
+```
+
+---
+
+## Interactive Camera
+
+- `main()`의 메인 루프에서 `Context::ProcessEvent()` 호출
+
+```cpp [2-5]
+while (!glfwWindowShouldClose(window)) {
+  glfwPollEvents();
+  context->ProcessInput(window);
+  context->Render();
+  glfwSwapBuffers(window);
+}
+```
+
+---
+
+## Interactive Camera
+
+- 빌드 및 실행
+  - WASD 키로 전후 좌우로 움직이는 카메라 확인
+
+---
+
+## Refactoring
+
+- 화면 크기 관련 처리 리팩토링
+
+```cpp [6,11-12]
+class Context {
+public:
+  static ContextUPtr Create();
+  void Render();
+  void ProcessInput(GLFWwindow* window);
+  void Reshape(int width, int height);
+
+private:
+  // ...
+
+  int m_width {640};
+  int m_height {480};
+
+  // ...
+```
+
+---
+
+## Refactoring
+
+- `Context::Reshape()` 함수 구현 및 프로젝션 행렬 계산식 수정
+
+```cpp
+void Context::Reshape(int width, int height) {
+    m_width = width;
+    m_height = height;
+    glViewport(0, 0, m_width, m_height);
+}
+```
+
+```cpp [1-2]
+auto projection = glm::perspective(glm::radians(45.0f),
+  (float)m_width / (float)m_height, 0.01f, 20.0f);
+auto view = glm::lookAt(
+  m_cameraPos,
+  m_cameraPos + m_cameraFront,
+  m_cameraUp);
+```
+
+---
+
+## Refactoring
+
+- glfw callback 내에서 context 사용
+  - user pointer 기능을 이용
+
+```cpp
+auto context = Context::Create();
+if (!context) {
+    SPDLOG_ERROR("failed to create context");
+    glfwTerminate();
+    return -1;
+}
+glfwSetWindowUserPointer(window, context.get());
+
+OnFramebufferSizeChange(window, 640, 480);
+glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
+glfwSetKeyCallback(window, OnKeyEvent);
+```
+
+---
+
+## Refactoring
+
+- glfw callback 내에서 context 사용
+
+```cpp
+void OnFramebufferSizeChange(GLFWwindow* window, int width, int height) {
+  SPDLOG_INFO("framebuffer size changed: ({} x {})", width, height);
+  auto context = (Context*)glfwGetWindowUserPointer(window);
+  context->Reshape(width, height);
+}
+```
+
+---
+
+## Refactoring
+
+- 빌드 및 실행
+  - 화면 크기 변경 후에도 종횡비 유지
+
+![aspect ratio](/opengl_course/note/images/07_aspect_ratio.png)
+
+---
+
+## Interactive Camera
+
+- Euler angle
+  - 물체의 회전 정보를 나타내는 대표적인 방식
+  - roll(z), pitch(x), yaw(y) 3개의 회전각
+
+![euler angle](/opengl_course/note/images/07_euler_angle.png)
+
+---
+
+## Interactive Camera
+
+- 카메라 회전각
+  - 카메라 회전에 roll은 보통 사용하지 않음
+    - 대신 up vector를 기준으로 roll을 설정
+  - 따라서 yaw, pitch만 가지고 camera front 방향을 결정
+
+---
+
+## Interactive Camera
+
+- `Context` 클래스에 카메라 회전 관련 파라미터 및 처리 함수 추가
+
+```cpp [7,12-13]
+class Context {
+public:
+  static ContextUPtr Create();
+  void Render();
+  void ProcessInput(GLFWwindow* window);
+  void Reshape(int width, int height);
+  void MouseMove(double x, double y);
+
+  //...
+
+  // camera parameter
+  float m_cameraPitch { 0.0f };
+  float m_cameraYaw { 0.0f };
+  glm::vec3 m_cameraFront { glm::vec3(0.0f, -1.0f, 0.0f) };
+  glm::vec3 m_cameraPos { glm::vec3(0.0f, 0.0f, 3.0f) };
+  glm::vec3 m_cameraUp { glm::vec3(0.0f, 1.0f, 0.0f) };
+};
+```
+
+---
+
+## Interactive Camera
+
+- `Context::MouseMove()` 구현
+
+```cpp
+void Context::MouseMove(double x, double y) {
+  static glm::vec2 prevPos = glm::vec2((float)x, (float)y);
+  auto pos = glm::vec2((float)x, (float)y);
+  auto deltaPos = pos - prevPos;
+
+  const float cameraRotSpeed = 0.8f;
+  m_cameraYaw -= deltaPos.x * cameraRotSpeed;
+  m_cameraPitch -= deltaPos.y * cameraRotSpeed;
+
+  if (m_cameraYaw < 0.0f)   m_cameraYaw += 360.0f;
+  if (m_cameraYaw > 360.0f) m_cameraYaw -= 360.0f;
+
+  if (m_cameraPitch > 89.0f)  m_cameraPitch = 89.0f;
+  if (m_cameraPitch < -89.0f) m_cameraPitch = -89.0f;
+
+  prevPos = pos;    
+}
+```
+
+---
+
+## Interactive Camera
+
+- `Context::Render()`에서 `m_cameraFront`를 yaw / pitch에 따라 결정
+  - (0, 0, -1) 방향을 x축, y축에 따라 회전
+
+```cpp [1-6]
+m_cameraFront =
+  glm::rotate(glm::mat4(1.0f),
+    glm::radians(m_cameraYaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
+  glm::rotate(glm::mat4(1.0f),
+    glm::radians(m_cameraPitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
+  glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
+
+auto projection = glm::perspective(glm::radians(45.0f),
+  (float)m_width / (float)m_height, 0.01f, 20.0f);
+auto view = glm::lookAt(
+  m_cameraPos,
+  m_cameraPos + m_cameraFront,
+  m_cameraUp);
+```
+
+---
+
+## Interactive Camera
+
+- `src/main.cpp`에서 마우스 커서 콜백 함수 구현 및 설정
+
+```cpp
+void OnCursorPos(GLFWwindow* window, double x, double y) {
+  auto context = (Context*)glfwGetWindowUserPointer(window);
+  context->MouseMove(x, y);
+}
+```
+
+```cpp [5]
+// ... in main() function
+OnFramebufferSizeChange(window, 640, 480);
+glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
+glfwSetKeyCallback(window, OnKeyEvent);
+glfwSetCursorPosCallback(window, OnCursorPos);
+```
+
+---
+
+## Interactive Camera
+
+- 빌드 및 결과
+  - 화면 안으로 커서가 들어오면 카메라 회전 시작
+  - 커서가 화면 밖으로 나가면 카메라 회전 종료
+  - 마우스 x축 움직임으로 좌우 회전
+  - 마우스 y축 움직임으로 상하 회전
+
+- **마우스 우버튼을 누르고 있는 경우에만** 카메라 조작을 허용해보자
+
+---
+
+## Interactive Camera
+
+- `Context` 클래스에 콜백 및 제어 파라미터 추가
+
+```cpp [4,6-7]
+class Context {
+// ...
+  void MouseMove(double x, double y);
+  void MouseButton(int button, int action, double x, double y);
+// ...
+  bool m_cameraControl { false };
+  glm::vec2 m_prevMousePos { glm::vec2(0.0f) };
+  float m_cameraPitch { 0.0f };
+// ...
+};
+```
+
+---
+
+## Interactive Camera
+
+- `Context::MouseButton()` 구현
+
+```cpp
+void Context::MouseButton(int button, int action, double x, double y) {
+  if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+    if (action == GLFW_PRESS) {
+      // 마우스 조작 시작 시점에 현재 마우스 커서 위치 저장
+      m_prevMousePos = glm::vec2((float)x, (float)y);
+      m_cameraControl = true;
+    }
+    else if (action == GLFW_RELEASE) {
+      m_cameraControl = false;
+    }
+  }
+}
+```
+
+---
+
+## Interactive Camera
+
+- `Context::ProcessInput()`, `Context::MouseMove()` 구현 수정
+
+```cpp [2-3]
+void Context::ProcessInput(GLFWwindow* window) {
+  if (!m_cameraControl)
+    return;
+  // ...
+```
+
+```cpp [2-5,9]
+void Context::MouseMove(double x, double y) {
+  if (!m_cameraControl)
+    return;
+  auto pos = glm::vec2((float)x, (float)y);
+  auto deltaPos = pos - m_prevMousePos;
+
+  // ...
+
+  m_prevMousePos = pos;    
+}
+
+```
+
+---
+
+## Interactive Camera
+
+- `src/main.cpp`에 마우스 버튼 관련 콜백 구현 및 설정
+
+```cpp
+void OnMouseButton(GLFWwindow* window, int button, int action, int modifier) {
+  auto context = (Context*)glfwGetWindowUserPointer(window);
+  double x, y;
+  glfwGetCursorPos(window, &x, &y);
+  context->MouseButton(button, action, x, y);
+}
+```
+
+```cpp [6]
+// ... in main() function
+OnFramebufferSizeChange(window, 640, 480);
+glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
+glfwSetKeyCallback(window, OnKeyEvent);
+glfwSetCursorPosCallback(window, OnCursorPos);
+glfwSetMouseButtonCallback(window, OnMouseButton);
+```
+
+---
+
+## Interactive Camera
+
+- 빌드 및 결과
+  - 마우스 우버튼을 누른 동안에만 카메라 조작 활성화
+
+<div>
+<img src="/opengl_course/note/images/07_camera_control.png" width="50%" />
+</div>
+
+---
+
 ## Congratulation!
 ### 수고하셨습니다!

@@ -3,7 +3,8 @@
 
 void OnFramebufferSizeChange(GLFWwindow* window, int width, int height) {
     SPDLOG_INFO("framebuffer size changed: ({} x {})", width, height);
-    glViewport(0, 0, width, height);
+    auto context = (Context*)glfwGetWindowUserPointer(window);
+    context->Reshape(width, height);
 }
 
 void OnKeyEvent(GLFWwindow* window,
@@ -19,6 +20,18 @@ void OnKeyEvent(GLFWwindow* window,
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
+}
+
+void OnCursorPos(GLFWwindow* window, double x, double y) {
+    auto context = (Context*)glfwGetWindowUserPointer(window);
+    context->MouseMove(x, y);
+}
+
+void OnMouseButton(GLFWwindow* window, int button, int action, int modifier) {
+    auto context = (Context*)glfwGetWindowUserPointer(window);
+    double x, y;
+    glfwGetCursorPos(window, &x, &y);
+    context->MouseButton(button, action, x, y);
 }
 
 void Render() {
@@ -62,23 +75,27 @@ int main(int argc, const char** argv) {
     auto glVersion = glGetString(GL_VERSION);
     SPDLOG_INFO("OpenGL context version: {}", glVersion);
 
-    OnFramebufferSizeChange(window, 640, 480);
-    glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
-    glfwSetKeyCallback(window, OnKeyEvent);
-
     auto context = Context::Create();
     if (!context) {
         SPDLOG_ERROR("failed to create context");
         glfwTerminate();
         return -1;
     }
+    glfwSetWindowUserPointer(window, context.get());
+    
+    OnFramebufferSizeChange(window, 640, 480);
+    glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
+    glfwSetKeyCallback(window, OnKeyEvent);
+    glfwSetCursorPosCallback(window, OnCursorPos);
+    glfwSetMouseButtonCallback(window, OnMouseButton);
 
     // glfw 루프 실행, 윈도우 close 버튼을 누르면 정상 종료
     SPDLOG_INFO("Start main loop");
     while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+        context->ProcessInput(window);
         context->Render();
         glfwSwapBuffers(window);
-        glfwPollEvents();
     }
     context.reset();
 
