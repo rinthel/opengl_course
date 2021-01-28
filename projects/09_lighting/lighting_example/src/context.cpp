@@ -64,6 +64,12 @@ void Context::MouseButton(int button, int action, double x, double y) {
 
 void Context::Render() {
     if (ImGui::Begin("ui window")) {
+        if (ImGui::CollapsingHeader("light")) {
+            ImGui::ColorEdit3("light color", glm::value_ptr(m_lightColor));
+            ImGui::ColorEdit3("object color", glm::value_ptr(m_objectColor));
+            ImGui::SliderFloat("ambient strength", &m_ambientStrength, 0.0f, 1.0f);
+        }
+        
         if (ImGui::ColorEdit4("clear color", glm::value_ptr(m_clearColor))) {
             glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
         }
@@ -79,6 +85,11 @@ void Context::Render() {
         }
     }
     ImGui::End();
+
+    m_program->Use();
+    m_program->SetUniform("lightColor", m_lightColor);
+    m_program->SetUniform("objectColor", m_objectColor);
+    m_program->SetUniform("ambientStrength", m_ambientStrength);
 
     std::vector<glm::vec3> cubePositions = {
         glm::vec3( 0.0f, 0.0f, 0.0f),
@@ -176,8 +187,8 @@ bool Context::Init() {
         GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW,
         indices, sizeof(uint32_t) * 36);
 
-    ShaderPtr vertShader = Shader::CreateFromFile("./shader/texture.vs", GL_VERTEX_SHADER);
-    ShaderPtr fragShader = Shader::CreateFromFile("./shader/texture.fs", GL_FRAGMENT_SHADER);
+    ShaderPtr vertShader = Shader::CreateFromFile("./shader/lighting.vs", GL_VERTEX_SHADER);
+    ShaderPtr fragShader = Shader::CreateFromFile("./shader/lighting.fs", GL_FRAGMENT_SHADER);
     if (!vertShader || !fragShader)
         return false;
     SPDLOG_INFO("vertex shader id: {}", vertShader->Get());
@@ -215,12 +226,8 @@ bool Context::Init() {
     m_program->SetUniform("tex", 0);
     m_program->SetUniform("tex2", 1);
 
-    glm::vec4 vec(1.0f,  0.0f, 0.0f, 1.0f);
-    auto trans = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 0.0f));
-    auto rot = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(3.0f));
-    vec = trans * rot * scale * vec;
-    SPDLOG_INFO("transformed vec: [{}, {}, {}]", vec.x, vec.y, vec.z);
+    m_program->SetUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+    m_program->SetUniform("objectColor", glm::vec3(1.0f, 0.5f, 0.0f));
 
     return true;
 }
