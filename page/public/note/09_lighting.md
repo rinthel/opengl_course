@@ -226,13 +226,13 @@ m_program->SetUniform("ambientStrength", m_ambientStrength);
 
 - 분산광의 밝기를 결정하는 요소
   - 빛의 방향과 밝기
-  - 표면의 법선 방향
+  - 표면의 normal 방향
 
 ---
 
 ## Diffuse Light
 
-- 큐브의 정점 정보 추가
+- 큐브의 정점 데이터에 normal 추가
 
 ```cpp
 float vertices[] = { // pos.xyz, normal.xyz, texcoord.uv
@@ -281,11 +281,205 @@ m_vertexBuffer = Buffer::CreateWithData(
 
 m_vertexLayout->SetAttrib(0, 3, GL_FLOAT, GL_FALSE,
   sizeof(float) * 8, 0);
-m_vertexLayout->SetAttrib(1, 2, GL_FLOAT, GL_FALSE,
+m_vertexLayout->SetAttrib(1, 3, GL_FLOAT, GL_FALSE,
   sizeof(float) * 8, sizeof(float) * 3);
 m_vertexLayout->SetAttrib(2, 2, GL_FLOAT, GL_FALSE,
   sizeof(float) * 8, sizeof(float) * 6);
 ```
+
+---
+
+## Diffuse Light
+
+- `shader/lighting.vs` 수정
+
+```glsl [7,11,15,17]
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+uniform mat4 modelTransform;
+
+out vec3 normal;
+out vec2 texCoord;
+out vec3 position;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  normal = (transpose(inverse(modelTransform)) * vec4(aNormal, 0.0)).xyz;
+  texCoord = aTexCoord;
+  position = (modelTransform * vec4(aPos, 1.0)).xyz;
+}
+```
+
+---
+
+## Diffuse Light
+
+- `gl_Position`외에도 `position`을 계산하여 fragment shader에 넘기는 이유
+  - `gl_Position`은 perspective transform이 적용되어 있어
+    canonical space 상의 좌표값으로 전환됨
+  - diffuse 값을 계산하려면 world space 상에서의 좌표값이 필요
+  - `normal`도 같은 이유로 model transform만 적용
+
+---
+
+## Diffuse Light
+
+- `normal`에 `modelTransform`의 inverse transpose를 적용하는 이유
+  - 점이 아닌 벡터의 경우 이렇게 해야 제대로 변환된 값을 계산할 수 있음
+  - matrix의 inverse transpose는 모든 점에서 동일하므로 보통 별도의 uniform으로
+    입력함
+
+<div>
+<img src="/opengl_course/note/images/09_normal_transform.png" style="width: 30%"/>
+</div>
+
+---
+
+## Diffuse Light
+
+- `shader/lighting.fs` 구현 변경
+
+```glsl [4,7,14-17]
+#version 330 core
+in vec3 normal;
+in vec2 texCoord;
+in vec3 position;
+out vec4 fragColor;
+
+uniform vec3 lightPos;
+uniform vec3 lightColor;
+uniform vec3 objectColor;
+uniform float ambientStrength;
+
+void main() {
+    vec3 ambient = ambientStrength * lightColor;
+    vec3 lightDir = normalize(lightPos - position);
+    vec3 pixelNorm = normalize(normal);
+    vec3 diffuse = max(dot(pixelNorm, lightDir), 0.0) * lightColor;
+    vec3 result = (ambient + diffuse) * objectColor;
+    fragColor = vec4(result, 1.0);
+}
+```
+
+---
+
+## Diffuse Light
+
+- (빛의 방향) = (광원 위치) - (각 픽셀의 3D 위치)
+- `normal`을 다시 normalize 하는 이유
+  - vertex shader에서 계산된 `normal`은 rasterization 되는
+    과정에서 선형 보간이 진행됨
+  - unit vector 간의 선형 보간 결과는 unit vector 보장을 못하기
+    때문에 normalization해야함
+
+---
+
+## Diffuse Light
+
+- `Context` 클래스에 light position 관련 멤버 변수 추가
+  - light의 위치에 따라 변하는 표면 색상을 관찰하기 위해 애니메이션
+    멈춤기능도 추가
+
+```cpp [1-2,7-8]
+  // animation
+  bool m_animation { true };
+
+  // clear color
+  glm::vec4 m_clearColor { glm::vec4(0.1f, 0.2f, 0.3f, 0.0f) };
+
+  // light parameter
+  glm::vec3 m_lightPos { glm::vec3(3.0f, 3.0f, 3.0f) };
+  glm::vec3 m_lightColor { glm::vec3(1.0f, 1.0f, 1.0f) };
+  glm::vec3 m_objectColor { glm::vec3(1.0f, 0.5f, 0.0f) };
+  float m_ambientStrength { 0.1f };
+```
+
+---
+
+## Diffuse Light
+
+- `Context::Render()`에서 광원 위치 및 애니메이션 on/off UI 추가
+
+```cpp [2-3,9]
+if (ImGui::Begin("ui window")) {
+  if (ImGui::CollapsingHeader("light", ImGuiTreeNodeFlags_DefaultOpen)) {
+    ImGui::DragFloat3("light pos", glm::value_ptr(m_lightPos), 0.01f);
+    ImGui::ColorEdit3("light color", glm::value_ptr(m_lightColor));
+    ImGui::ColorEdit3("object color", glm::value_ptr(m_objectColor));
+    ImGui::SliderFloat("ambient strength", &m_ambientStrength, 0.0f, 1.0f);
+  }
+
+  ImGui::Checkbox("animation", &m_animation);
+
+  if (ImGui::ColorEdit4("clear color", glm::value_ptr(m_clearColor))) {
+    glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
+  }
+```
+
+---
+
+## Diffuse Light
+
+- `lightPos`, `modelTransform` uniform 입력
+- `m_animation` 값에 따라 회전 애니메이션 적용
+
+```cpp [1]
+m_program->SetUniform("lightPos", m_lightPos);
+m_program->SetUniform("lightColor", m_lightColor);
+m_program->SetUniform("objectColor", m_objectColor);
+m_program->SetUniform("ambientStrength", m_ambientStrength);
+```
+
+```cpp [4-7,10]
+for (size_t i = 0; i < cubePositions.size(); i++){
+  auto& pos = cubePositions[i];
+  auto model = glm::translate(glm::mat4(1.0f), pos);
+  auto angle = glm::radians((float)glfwGetTime() * 120.0f + 20.0f * (float)i);
+  model = glm::rotate(model,
+    m_animation ? angle : 0.0f,
+    glm::vec3(1.0f, 0.5f, 0.0f));
+  auto transform = projection * view * model;
+  m_program->SetUniform("transform", transform);
+  m_program->SetUniform("modelTransform", model);
+  glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+}
+```
+
+---
+
+## Diffuse Light
+
+- light position에 light color로 작은 큐브를 그리자
+
+```cpp
+// after computing projection and view matrix
+auto lightModelTransform =
+  glm::translate(glm::mat4(1.0), m_lightPos) *
+  glm::scale(glm::mat4(1.0), glm::vec3(0.1f));
+m_program->Use();
+m_program->SetUniform("lightPos", m_lightPos);
+m_program->SetUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+m_program->SetUniform("objectColor", glm::vec3(1.0f, 1.0f, 1.0f));
+m_program->SetUniform("ambientStrength", 1.0f);
+m_program->SetUniform("transform", projection * view * lightModelTransform);
+m_program->SetUniform("modelTransform", lightModelTransform);
+glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+```
+
+---
+
+## Diffuse Light
+
+- 빌드 및 결과 확인
+  - UI로 파라미터를 변경하면서 광원의 위치에 따라 명암이 생기는 것을 관찰
+
+<div>
+<img src="/opengl_course/note/images/09_diffuse_light.png" style="width: 70%"/>
+</div>
 
 ---
 

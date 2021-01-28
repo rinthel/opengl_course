@@ -3,10 +3,6 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#define WINDOW_NAME "Lighting Example"
-#define WINDOW_WIDTH 960
-#define WINDOW_HEIGHT 540
-
 void OnFramebufferSizeChange(GLFWwindow* window, int width, int height) {
     SPDLOG_INFO("framebuffer size changed: ({} x {})", width, height);
     auto context = (Context*)glfwGetWindowUserPointer(window);
