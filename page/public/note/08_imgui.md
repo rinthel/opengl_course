@@ -350,7 +350,7 @@ void OnMouseButton(GLFWwindow* window, int button, int action, int modifier) {
 
 ```cpp [5,8]
 // ... in main() function
-OnFramebufferSizeChange(window, 640, 480);
+OnFramebufferSizeChange(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
 glfwSetKeyCallback(window, OnKeyEvent);
 glfwSetCharCallback(window, OnCharEvent);

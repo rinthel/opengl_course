@@ -1057,7 +1057,7 @@ if (!context) {
 }
 glfwSetWindowUserPointer(window, context.get());
 
-OnFramebufferSizeChange(window, 640, 480);
+OnFramebufferSizeChange(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
 glfwSetKeyCallback(window, OnKeyEvent);
 ```
@@ -1194,7 +1194,7 @@ void OnCursorPos(GLFWwindow* window, double x, double y) {
 
 ```cpp [5]
 // ... in main() function
-OnFramebufferSizeChange(window, 640, 480);
+OnFramebufferSizeChange(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
 glfwSetKeyCallback(window, OnKeyEvent);
 glfwSetCursorPosCallback(window, OnCursorPos);
@@ -1296,7 +1296,7 @@ void OnMouseButton(GLFWwindow* window, int button, int action, int modifier) {
 
 ```cpp [6]
 // ... in main() function
-OnFramebufferSizeChange(window, 640, 480);
+OnFramebufferSizeChange(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
 glfwSetKeyCallback(window, OnKeyEvent);
 glfwSetCursorPosCallback(window, OnCursorPos);
