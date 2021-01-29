@@ -483,5 +483,123 @@ glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
 ---
 
+## Specular Light
+
+- 반사광의 밝기를 결정하는 요소
+  - 빛의 방향과 밝기
+  - 표면의 normal 방향
+  - **시선의 방향**
+
+---
+
+## Specular Light
+
+- `shader/lighting.fs` 수정
+
+```glsl [11-13, 22-25, 27]
+#version 330 core
+in vec3 normal;
+in vec2 texCoord;
+in vec3 position;
+out vec4 fragColor;
+
+uniform vec3 lightPos;
+uniform vec3 lightColor;
+uniform vec3 objectColor;
+uniform float ambientStrength;
+uniform float specularStrength;
+uniform float specularShininess;
+uniform vec3 viewPos;
+
+void main() {
+    vec3 ambient = ambientStrength * lightColor;
+
+    vec3 lightDir = normalize(lightPos - position);
+    vec3 pixelNorm = normalize(normal);
+    vec3 diffuse = max(dot(pixelNorm, lightDir), 0.0) * lightColor;
+
+    vec3 viewDir = normalize(viewPos - position);
+    vec3 reflectDir = reflect(-lightDir, pixelNorm);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), specularShininess);
+    vec3 specular = specularStrength * spec * lightColor;
+
+    vec3 result = (ambient + diffuse + specular) * objectColor;
+    fragColor = vec4(result, 1.0);
+}
+```
+
+---
+
+## Specular Light
+
+- `reflect(light, normal)` 함수
+  - `light` 벡터 방향의 광선이 `normal` 벡터 방향의 표면에 부딪혔을 때 반사되는
+    벡터를 출력하는 내장함수
+- 현재 카메라의 world space 상의 좌표와 픽셀 좌표 간의 차를 통해
+  시선 벡터 `viewDir` 계산
+- `reflectDir`과 `viewDir` 간의 내적을 통해 반사광을 많이 보는 정도를 계산
+- `specularStrength`로 반사광의 정도를 조절
+- `specularShininess`로 반사광의 면적 조절
+
+---
+
+## Specualr Light
+
+- `specularShininess` 값에 따른 specular 하이라이트의 변화
+
+![](/opengl_course/note/images/09_specular_shininess.png)
+
+---
+
+## Specular Light
+
+- `Context` 클래스에 반사광 제어를 위한 파라미터 추가
+
+```cpp [6-7]
+// light parameter
+glm::vec3 m_lightPos { glm::vec3(3.0f, 3.0f, 3.0f) };
+glm::vec3 m_lightColor { glm::vec3(1.0f, 1.0f, 1.0f) };
+glm::vec3 m_objectColor { glm::vec3(1.0f, 0.5f, 0.0f) };
+float m_ambientStrength { 0.1f };
+float m_specularStrength { 0.5f };
+float m_specularShininess { 32.0f };
+```
+
+---
+
+## Specular Light
+
+- `Context::Render()`에서 uniform 추가 세팅
+
+```cpp [2-3]
+ImGui::SliderFloat("ambient strength", &m_ambientStrength, 0.0f, 1.0f);
+ImGui::SliderFloat("specular strength", &m_specularStrength, 0.0f, 1.0f);
+ImGui::DragFloat("specular shininess", &m_specularShininess, 1.0f, 1.0f, 256.0f);
+```
+
+```cpp [1,6-7]
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("lightPos", m_lightPos);
+m_program->SetUniform("lightColor", m_lightColor);
+m_program->SetUniform("objectColor", m_objectColor);
+m_program->SetUniform("ambientStrength", m_ambientStrength);
+m_program->SetUniform("specularStrength", m_specularStrength);
+m_program->SetUniform("specularShininess", m_specularShininess);
+```
+
+---
+
+## Specular Light
+
+- 빌드 및 결과
+  - 시점과 광원의 위치, 파라미터를 바꿔가면서 specular highlight가 생기는
+    모습을 관찰해보자
+
+<div>
+<img src="/opengl_course/note/images/09_specular_light.png" style="width: 60%"/>
+</div>
+
+---
+
 ## Congratulation!
 ### 수고하셨습니다!
