@@ -71,12 +71,17 @@ void Context::MouseButton(int button, int action, double x, double y) {
 void Context::Render() {
     if (ImGui::Begin("ui window")) {
         if (ImGui::CollapsingHeader("light", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::DragFloat3("light pos", glm::value_ptr(m_lightPos), 0.01f);
-            ImGui::ColorEdit3("light color", glm::value_ptr(m_lightColor));
-            ImGui::ColorEdit3("object color", glm::value_ptr(m_objectColor));
-            ImGui::SliderFloat("ambient strength", &m_ambientStrength, 0.0f, 1.0f);
-            ImGui::SliderFloat("specular strength", &m_specularStrength, 0.0f, 1.0f);
-            ImGui::DragFloat("specular shininess", &m_specularShininess, 1.0f, 1.0f, 256.0f);
+            ImGui::DragFloat3("l.position", glm::value_ptr(m_light.position), 0.01f);
+            ImGui::ColorEdit3("l.ambient", glm::value_ptr(m_light.ambient));
+            ImGui::ColorEdit3("l.diffuse", glm::value_ptr(m_light.diffuse));
+            ImGui::ColorEdit3("l.specular", glm::value_ptr(m_light.specular));
+        }
+
+        if (ImGui::CollapsingHeader("material", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::ColorEdit3("m.ambient", glm::value_ptr(m_material.ambient));
+            ImGui::ColorEdit3("m.diffuse", glm::value_ptr(m_material.diffuse));
+            ImGui::ColorEdit3("m.specular", glm::value_ptr(m_material.specular));
+            ImGui::DragFloat("m.shininess", &m_material.shininess, 1.0f, 1.0f, 256.0f);
         }
 
         ImGui::Checkbox("animation", &m_animation);
@@ -127,24 +132,25 @@ void Context::Render() {
         m_cameraUp);
 
     auto lightModelTransform =
-        glm::translate(glm::mat4(1.0), m_lightPos) *
+        glm::translate(glm::mat4(1.0), m_light.position) *
         glm::scale(glm::mat4(1.0), glm::vec3(0.1f));
     m_program->Use();
-    m_program->SetUniform("lightPos", m_lightPos);
+    m_program->SetUniform("lightPos", m_light.position);
     m_program->SetUniform("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-    m_program->SetUniform("objectColor", glm::vec3(1.0f, 1.0f, 1.0f));
-    m_program->SetUniform("ambientStrength", 1.0f);
+    m_program->SetUniform("material.ambient", glm::vec3(1.0f, 1.0f, 1.0f));
     m_program->SetUniform("transform", projection * view * lightModelTransform);
     m_program->SetUniform("modelTransform", lightModelTransform);
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
     m_program->SetUniform("viewPos", m_cameraPos);
-    m_program->SetUniform("lightPos", m_lightPos);
-    m_program->SetUniform("lightColor", m_lightColor);
-    m_program->SetUniform("objectColor", m_objectColor);
-    m_program->SetUniform("ambientStrength", m_ambientStrength);
-    m_program->SetUniform("specularStrength", m_specularStrength);
-    m_program->SetUniform("specularShininess", m_specularShininess);
+    m_program->SetUniform("light.position", m_light.position);
+    m_program->SetUniform("light.ambient", m_light.ambient);
+    m_program->SetUniform("light.diffuse", m_light.diffuse);
+    m_program->SetUniform("light.specular", m_light.specular);
+    m_program->SetUniform("material.ambient", m_material.ambient);
+    m_program->SetUniform("material.diffuse", m_material.diffuse);
+    m_program->SetUniform("material.specular", m_material.specular);
+    m_program->SetUniform("material.shininess", m_material.shininess);
 
     for (size_t i = 0; i < cubePositions.size(); i++){
         auto& pos = cubePositions[i];

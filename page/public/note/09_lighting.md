@@ -628,13 +628,137 @@ m_program->SetUniform("specularShininess", m_specularShininess);
 ## Material
 
 - 최종 색상 = 빛 색상 * 재질의 색상
-- 재질 (material) 또한 ambient / diffuse / specular로 나누어 표현 가능
+- 재질 (material)을 ambient / diffuse / specular로 나누어 표현
   - 금속 재질은 반사광이 강하다
   - 천 재질은 반사광이 약하다
 
 <div>
 <img src="/opengl_course/note/images/09_material_examples.png" style="width: 60%"/>
 </div>
+
+---
+
+## Material
+
+- `shader/lighting.fs` 수정
+
+```glsl [9-23, 26-38]
+#version 330 core
+in vec3 normal;
+in vec2 texCoord;
+in vec3 position;
+out vec4 fragColor;
+
+uniform vec3 viewPos;
+
+struct Light {
+    vec3 position;
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+uniform Light light;
+
+struct Material {
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    float shininess;
+};
+uniform Material material;
+
+void main() {
+    vec3 ambient = material.ambient * light.ambient;
+
+    vec3 lightDir = normalize(light.position - position);
+    vec3 pixelNorm = normalize(normal);
+    float diff = max(dot(pixelNorm, lightDir), 0.0);
+    vec3 diffuse = diff * material.diffuse * light.diffuse;
+
+    vec3 viewDir = normalize(viewPos - position);
+    vec3 reflectDir = reflect(-lightDir, pixelNorm);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    vec3 specular = spec * material.shininess * light.specular;
+
+    vec3 result = ambient + diffuse + specular;
+    fragColor = vec4(result, 1.0);
+}
+```
+
+---
+
+## Material
+
+- `Context` 클래스 내의 광원 / 재질 파라미터 수정
+
+```cpp
+// light parameter
+struct Light {
+  glm::vec3 position { glm::vec3(3.0f, 3.0f, 3.0f) };
+  glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
+  glm::vec3 diffuse { glm::vec3(0.5f, 0.5f, 0.5f) };
+  glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
+};
+Light m_light;
+
+// material parameter
+struct Material {
+  glm::vec3 ambient { glm::vec3(1.0f, 0.5f, 0.3f) };
+  glm::vec3 diffuse { glm::vec3(1.0f, 0.5f, 0.3f) };
+  glm::vec3 specular { glm::vec3(0.5f, 0.5f, 0.5f) };
+  float shininess { 32.0f };
+};
+Material m_material;
+```
+
+---
+
+## Material
+
+- `Context::Render()`에서 파라미터 UI 수정
+
+```cpp [2-14]
+if (ImGui::Begin("ui window")) {
+  if (ImGui::CollapsingHeader("light", ImGuiTreeNodeFlags_DefaultOpen)) {
+      ImGui::DragFloat3("l.position", glm::value_ptr(m_light.position), 0.01f);
+      ImGui::ColorEdit3("l.ambient", glm::value_ptr(m_light.ambient));
+      ImGui::ColorEdit3("l.diffuse", glm::value_ptr(m_light.diffuse));
+      ImGui::ColorEdit3("l.specular", glm::value_ptr(m_light.specular));
+  }
+
+  if (ImGui::CollapsingHeader("material", ImGuiTreeNodeFlags_DefaultOpen)) {
+      ImGui::ColorEdit3("m.ambient", glm::value_ptr(m_material.ambient));
+      ImGui::ColorEdit3("m.diffuse", glm::value_ptr(m_material.diffuse));
+      ImGui::ColorEdit3("m.specular", glm::value_ptr(m_material.specular));
+      ImGui::DragFloat("m.shininess", &m_material.shininess, 1.0f, 1.0f, 256.0f);
+  }
+```
+
+---
+
+## Material
+
+- `Context::Render()`의 uniform 적용 코드 수정
+
+```cpp [2-9]
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+m_program->SetUniform("material.ambient", m_material.ambient);
+m_program->SetUniform("material.diffuse", m_material.diffuse);
+m_program->SetUniform("material.specular", m_material.specular);
+m_program->SetUniform("material.shininess", m_material.shininess);
+```
+
+---
+
+## Material
+
+- 빌드 및 결과
+
+![](/opengl_course/note/images/09_material_light.png)
 
 ---
 
