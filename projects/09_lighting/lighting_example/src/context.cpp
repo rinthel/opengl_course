@@ -23,6 +23,12 @@ void Context::ProcessInput(GLFWwindow* window) {
         m_cameraPos += cameraSpeed * cameraRight;
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         m_cameraPos -= cameraSpeed * cameraRight;    
+
+    auto cameraUp = glm::normalize(glm::cross(-m_cameraFront, cameraRight));
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        m_cameraPos += cameraSpeed * cameraUp;
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        m_cameraPos -= cameraSpeed * cameraUp;
 }
 
 void Context::Reshape(int width, int height) {

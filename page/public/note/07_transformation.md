@@ -909,7 +909,7 @@ auto view = glm::lookAt(cameraPos, cameraTarget, cameraUp);
 ## Interactive Camera
 
 - 카메라 조작을 키보드 / 마우스로 할 수 있게 해보자
-  - W/A/S/D: 전후좌우 이동
+  - W/A/S/D/Q/E: 전후좌우 + 상하 이동
   - 마우스 커서: 카메라 회전
 
 ---
@@ -955,6 +955,12 @@ void Context::ProcessInput(GLFWwindow* window) {
     m_cameraPos += cameraSpeed * cameraRight;
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     m_cameraPos -= cameraSpeed * cameraRight;    
+
+  auto cameraUp = glm::normalize(glm::cross(-m_cameraFront, cameraRight));
+  if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    m_cameraPos += cameraSpeed * cameraUp;
+  if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    m_cameraPos -= cameraSpeed * cameraUp;
 }
 ```
 
@@ -993,7 +999,7 @@ while (!glfwWindowShouldClose(window)) {
 ## Interactive Camera
 
 - 빌드 및 실행
-  - WASD 키로 전후 좌우로 움직이는 카메라 확인
+  - WASDQE 키로 전후/좌우/상하로 움직이는 카메라 확인
 
 ---
 

@@ -30,6 +30,7 @@
 - 가장 대표적인 Local illumination model
   - 빛과 물체 간의 색상 결정을 3가지로 나눠서 표현
   - ambient (주변광), diffuse (분산광), specular (반사광)
+  - 위 3개의 빛을 더하여 최종 색상을 결정
 
 ![](/opengl_course/note/images/09_phong_illumination_model.png)
 
@@ -37,13 +38,36 @@
 
 ## Ambient light
 
+- 주변광
+- 빛의 방향, 물체 표면의 방향, 시선 방향과 아무 상관 없이 물체가 기본적으로 받는 빛
+- 상수값으로 처리
+
 ---
 
 ## Diffuse light
 
+- 분산광
+- 빛이 물체 표면에 부딪혔을 때, **모든 방향으로 고르게 퍼지는 빛**
+  - 즉 시선의 방향과는 상관없이 빛의 방향과 물체 표면의 방향에 따라 결정
+- `diffuse = dot(light, normal)`
+
+<div>
+<img src="/opengl_course/note/images/09_diffuse_light_model.png" style="width: 30%"/>
+</div>
+
 ---
 
 ## Specular light
+
+- 반사광
+- 빛이 물체 표면에 부딪혀 반사되는 광원
+- 시선이 방향이 이 반사광의 방향과 동일할 때 가장 강한 빛이 나온다
+- `reflect = 2 * dot(light, normal) - light`
+- `specular = dot(view, reflect)`
+
+<div>
+<img src="/opengl_course/note/images/09_specular_light_model.png" style="width: 30%"/>
+</div>
 
 ---
 
@@ -597,6 +621,19 @@ m_program->SetUniform("specularShininess", m_specularShininess);
 
 <div>
 <img src="/opengl_course/note/images/09_specular_light.png" style="width: 60%"/>
+</div>
+
+---
+
+## Material
+
+- 최종 색상 = 빛 색상 * 재질의 색상
+- 재질 (material) 또한 ambient / diffuse / specular로 나누어 표현 가능
+  - 금속 재질은 반사광이 강하다
+  - 천 재질은 반사광이 약하다
+
+<div>
+<img src="/opengl_course/note/images/09_material_examples.png" style="width: 60%"/>
 </div>
 
 ---
