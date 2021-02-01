@@ -678,7 +678,7 @@ void main() {
     vec3 viewDir = normalize(viewPos - position);
     vec3 reflectDir = reflect(-lightDir, pixelNorm);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    vec3 specular = spec * material.shininess * light.specular;
+    vec3 specular = spec * material.specular * light.specular;
 
     vec3 result = ambient + diffuse + specular;
     fragColor = vec4(result, 1.0);
@@ -775,13 +775,229 @@ m_program->SetUniform("material.shininess", m_material.shininess);
   - [container2.png](https://learnopengl.com/img/textures/container2.png)
   - [container2_specular.png](https://learnopengl.com/img/textures/container2_specular.png)
 
-
 <div>
 <img src="https://learnopengl.com/img/textures/container2.png" style="width: 30%"/>
 <img src="https://learnopengl.com/img/textures/container2_specular.png" style="width: 30%"/>
 </div>
 
 ---
+
+## Lighting Maps
+
+- 여러 프로그램을 쉽게 초기화 하기 위한 리팩토링
+
+```cpp [7-9, 12]
+CLASS_PTR(Program)
+class Program {
+public:
+  static ProgramUPtr Create(
+    const std::vector<ShaderPtr>& shaders);
+  
+  static ProgramUPtr Create(
+    const std::string& vertShaderFilename,
+    const std::string& fragShaderFilename);
+
+  // ...
+  void SetUniform(const std::string& name, const glm::vec4& value) const;
+  // ...
+```
+
+---
+
+## Lighting Maps
+
+- 여러 프로그램을 쉽게 초기화 하기 위한 리팩토링
+
+```cpp
+ProgramUPtr Program::Create(
+  const std::string& vertShaderFilename,
+  const std::string& fragShaderFilename) {
+  ShaderPtr vs = Shader::CreateFromFile(vertShaderFilename,
+    GL_VERTEX_SHADER);
+  ShaderPtr fs = Shader::CreateFromFile(fragShaderFilename,
+    GL_FRAGMENT_SHADER);
+  if (!vs || !fs)
+    return nullptr;
+  return std::move(Create({vs, fs}));
+}
+
+void Program::SetUniform(const std::string& name,
+  const glm::vec4& value) const {
+  auto loc = glGetUniformLocation(m_program, name.c_str());
+  glUniform4fv(loc, 1, glm::value_ptr(value));
+}
+```
+
+---
+
+## Lighting Maps
+
+- `Context` 클래스에 `Program` 멤버 변수 추가
+
+```cpp [5]
+private:
+    Context() {}
+    bool Init();
+    ProgramUPtr m_program;
+    ProgramUPtr m_simpleProgram;
+```
+
+---
+
+## Lighting Maps
+
+- `Context::Init()`에서 두 `Program` 초기화
+
+```cpp
+m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
+if (!m_simpleProgram)
+  return false;
+
+m_program = Program::Create("./shader/lighting.vs", "./shader/lighting.fs");
+if (!m_program)
+  return false;
+```
+
+---
+
+## Lighting Maps
+
+- `shader/simple.vs`, `shader/simple.fs` 수정
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 transform;
+
+void main() {
+    gl_Position = transform * vec4(aPos, 1.0);
+}
+```
+
+```glsl
+#version 330 core
+uniform vec4 color;
+out vec4 fragColor;
+
+void main() {
+    fragColor = color;
+}
+```
+
+---
+
+## Lighting Maps
+
+- `Context::Render()`에서 광원의 위치 그리는 코드를 수정
+
+```cpp [4-9]
+auto lightModelTransform =
+    glm::translate(glm::mat4(1.0), m_light.position) *
+    glm::scale(glm::mat4(1.0), glm::vec3(0.1f));
+m_simpleProgram->Use();
+m_simpleProgram->SetUniform("color", glm::vec4(m_light.ambient + m_light.diffuse, 1.0f));
+m_simpleProgram->SetUniform("transform", projection * view * lightModelTransform);
+glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+m_program->Use();
+```
+
+---
+
+## Lighting Maps
+
+- `shader/lighting.fs` 수정
+
+```glsl [2,9-10,15]
+struct Material {
+    sampler2D diffuse;
+    vec3 specular;
+    float shininess;
+};
+uniform Material material;
+
+void main() {
+  vec3 texColor = texture2D(material.diffuse, texCoord).xyz;
+  vec3 ambient = texColor * light.ambient;
+
+  vec3 lightDir = normalize(light.position - position);
+  vec3 pixelNorm = normalize(normal);
+  float diff = max(dot(pixelNorm, lightDir), 0.0);
+  vec3 diffuse = diff * texColor * light.diffuse;
+```
+
+---
+
+## Lighting Maps
+
+- `Context` 내 `Material` 구조체 수정
+
+```cpp [3]
+  // material parameter
+  struct Material {
+      TextureUPtr diffuse;
+      glm::vec3 specular { glm::vec3(0.5f, 0.5f, 0.5f) };
+      float shininess { 32.0f };
+  };
+  Material m_material;
+```
+
+---
+
+## Lighting Maps
+
+- `Context::Init()`에서 diffuse 텍스처 로딩
+
+```cpp
+m_material.diffuse = Texture::CreateFromImage(
+  Image::Load("./image/container2.png").get()
+  );
+```
+
+---
+
+## Lighting Maps
+
+- `Context::Render()`에서 uniform 설정
+
+```cpp [7,11-12]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+m_program->SetUniform("material.diffuse", 0);
+m_program->SetUniform("material.specular", m_material.specular);
+m_program->SetUniform("material.shininess", m_material.shininess);
+
+glActiveTexture(GL_TEXTURE0);
+m_material.diffuse->Bind();
+```
+
+---
+
+## Lighting Maps
+
+- 빌드 및 실행 결과
+  - 명암이 들어간 텍스처
+  - 나무 부분이 금속 부분과 동일하게 반짝인다
+
+<div>
+<img src="/opengl_course/note/images/09_diffuse_map.png" style="width: 60%">
+</div>
+
+---
+
+## Lighting Maps
+
+- specular map
+  - diffuse color과 더불어 specular color도 texture map으로 대체하자
+
+```glsl
+```
+
 
 ## Congratulation!
 ### 수고하셨습니다!
