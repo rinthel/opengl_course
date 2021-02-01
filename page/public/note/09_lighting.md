@@ -762,5 +762,26 @@ m_program->SetUniform("material.shininess", m_material.shininess);
 
 ---
 
+## Lighting Maps
+
+- 재질을 구성하는 ambient, diffuse, specular 모두 텍스처 맵으로 대체 가능
+- 우리가 흔히 사용하는 오브젝트의 texture map은 결국 diffuse map으로 사용
+
+---
+
+## Lighting Maps
+
+- 두 개의 텍스처 이미지 다운로드 후 `image` 디렉토리에 저장
+  - [container2.png](https://learnopengl.com/img/textures/container2.png)
+  - [container2_specular.png](https://learnopengl.com/img/textures/container2_specular.png)
+
+
+<div>
+<img src="https://learnopengl.com/img/textures/container2.png" style="width: 30%"/>
+<img src="https://learnopengl.com/img/textures/container2_specular.png" style="width: 30%"/>
+</div>
+
+---
+
 ## Congratulation!
 ### 수고하셨습니다!
