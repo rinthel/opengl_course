@@ -1161,5 +1161,156 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
+## Light Casters
+
+- Point light
+  - 한 점에서부터 모든 방향으로 광선이 발사
+    - Omni direction
+    - Directional light 이전의 예제는 모두 Point light로 볼 수 있음
+  - 전구
+
+<div>
+<img src="/opengl_course/note/images/09_point_light.png" style="width: 40%">
+</div>
+
+---
+
+## Light Casters
+
+- Attenuation
+  - 빛의 감쇠
+  - 물리 법칙으로는 거리의 제곱에 반비례하게 빛의 감쇠가 일어남
+  - 그러나 local illumination model, 즉 주변의 반사광을 고려하지
+    않는 경우 거리의 제곱에 직접 반비례하게 만들 경우 급격히 어두워짐
+
+---
+
+## Light Casters
+
+- Attenumation model
+  - d: 광원과 물체 표면 간의 거리
+  - Kc, Kl, Kq 세 개의 파라미터
+  - 광원이 어느정도 거리까지 영향을 주게할 것인지에 따라 파라미터를 조절
+
+<div>
+<img src="/opengl_course/note/images/09_attenuation_equation.png" style="width: 30%">
+<img src="/opengl_course/note/images/09_attenuation_graph.png" style="width: 40%">
+</div>
+
+---
+
+## Light Casters
+
+- Ogre3D 엔진에서 사용하는 점 광원 최대 거리에 따른 파라미터
+
+<div>
+<img src="/opengl_course/note/images/09_attenuation_parameter_table.png" style="width: 50%">
+</div>
+
+---
+
+## Light Casters
+
+- `shader/lighting.fs` 수정
+
+```glsl [2-3]
+struct Light {
+    vec3 position;
+    vec3 attenuation;
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+uniform Light light;
+```
+
+```glsl [1-4,9]
+float dist = length(light.position - position);
+vec3 distPoly = vec3(1.0, dist, dist*dist);
+float attenuation = 1.0 / dot(distPoly, light.attenuation);
+vec3 lightDir = (light.position - position) / dist;
+vec3 pixelNorm = normalize(normal);
+
+// ...
+
+vec3 result = (ambient + diffuse + specular) * attenuation;
+```
+
+---
+
+## Light Casters
+
+- 최대 거리에 따라 attenuation coefficient를 근사해주는 함수를
+  `src/common.*`에 정의 및 구현
+
+```cpp
+glm::vec3 GetAttenuationCoeff(float distance) {
+  const auto linear_coeff = glm::vec4(
+    8.4523112e-05, 4.4712582e+00, -1.8516388e+00, 3.3955811e+01
+  );
+  const auto quad_coeff = glm::vec4(
+    -7.6103583e-04, 9.0120201e+00, -1.1618500e+01, 1.0000464e+02
+  );
+
+  float kc = 1.0f;
+  float d = 1.0f / distance;
+  auto dvec = glm::vec4(1.0f, d, d*d, d*d*d);
+  float kl = glm::dot(linear_coeff, dvec);
+  float kq = glm::dot(quad_coeff, dvec);
+  
+  return glm::vec3(kc, glm::max(kl, 0.0f), glm::max(kq*kq, 0.0f));
+}
+```
+
+---
+
+## Light Casters
+
+- `Context` 클래스 내의 light parameter 변경
+
+```cpp [3-4]
+// light parameter
+struct Light {
+  glm::vec3 position { glm::vec3(2.0f, 2.0f, 2.0f) };
+  float distance { 32.0f };
+  glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
+  glm::vec3 diffuse { glm::vec3(0.8f, 0.8f, 0.8f) };
+  glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
+};
+Light m_light;
+```
+
+---
+
+## Light Casters
+
+- `Context::Render()`의 uniform 적용 코드 변경
+  - position, distance 수정이 가능하도록 UI 코드를 고쳐보자
+  - 주석을 제거하여 광원 위치를 다시 그려보자
+
+```cpp [3-5]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.attenuation",
+  GetAttenuationCoeff(m_light.distance));
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+```
+
+---
+
+## Light Casters
+
+- 빌드 및 결과
+  - 점광원으로부터 거리가 멀수록 상자가 어두워 지는 것을 확인
+
+<div>
+<img src="/opengl_course/note/images/09_point_light_apply.png" style="width: 60%">
+</div>
+
+---
+
 ## Congratulation!
 ### 수고하셨습니다!
