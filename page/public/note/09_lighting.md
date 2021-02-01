@@ -995,9 +995,94 @@ m_material.diffuse->Bind();
 - specular map
   - diffuse color과 더불어 specular color도 texture map으로 대체하자
 
-```glsl
+```glsl [3]
+struct Material {
+  sampler2D diffuse;
+  sampler2D specular;
+  float shininess;
+};
 ```
 
+```glsl [1,5]
+vec3 specColor = texture2D(material.specular, texCoord).xyz;
+vec3 viewDir = normalize(viewPos - position);
+vec3 reflectDir = reflect(-lightDir, pixelNorm);
+float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+vec3 specular = spec * specColor * light.specular;
+```
+
+---
+
+## Lighting Maps
+
+- `Context` 코드 수정
+
+```cpp [4]
+// ... in Context declaration
+struct Material {
+  TextureUPtr diffuse;
+  TextureUPtr specular;
+  float shininess { 32.0f };
+};
+```
+
+```cpp [6-8]
+// ... in Context::Init()
+m_material.diffuse = Texture::CreateFromImage(
+  Image::Load("./image/container2.png").get()
+  );
+
+m_material.specular = Texture::CreateFromImage(
+  Image::Load("./image/container2_specular.png").get()
+  );
+```
+
+---
+
+## Lighting Maps
+
+- `Context::Render()` 코드 수정
+
+```cpp [8,13-14]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+m_program->SetUniform("material.diffuse", 0);
+m_program->SetUniform("material.specular", 1);
+m_program->SetUniform("material.shininess", m_material.shininess);
+
+glActiveTexture(GL_TEXTURE0);
+m_material.diffuse->Bind();
+glActiveTexture(GL_TEXTURE1);
+m_material.specular->Bind();
+```
+
+---
+
+## Lighting Maps
+
+- 빌드 및 실행 결과
+  - 나무 재질에는 하이라이트가 생기지 않음
+  - 금속 재질에는 하이라이트 발생
+
+<div>
+<img src="/opengl_course/note/images/09_specular_map.png" style="width: 60%">
+</div>
+
+---
+
+## Light Casters
+
+- 물체에 빛을 쐬는 광원의 종류를 다양화하자
+- 흔히 사용되는 3가지 종류의 light caster
+  - Directional light
+  - Point light (omni light)
+  - Spot light
+
+---
 
 ## Congratulation!
 ### 수고하셨습니다!

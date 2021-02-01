@@ -78,7 +78,6 @@ void Context::Render() {
         }
 
         if (ImGui::CollapsingHeader("material", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::ColorEdit3("m.specular", glm::value_ptr(m_material.specular));
             ImGui::DragFloat("m.shininess", &m_material.shininess, 1.0f, 1.0f, 256.0f);
         }
 
@@ -144,11 +143,13 @@ void Context::Render() {
     m_program->SetUniform("light.diffuse", m_light.diffuse);
     m_program->SetUniform("light.specular", m_light.specular);
     m_program->SetUniform("material.diffuse", 0);
-    m_program->SetUniform("material.specular", m_material.specular);
+    m_program->SetUniform("material.specular", 1);
     m_program->SetUniform("material.shininess", m_material.shininess);
 
     glActiveTexture(GL_TEXTURE0);
     m_material.diffuse->Bind();
+    glActiveTexture(GL_TEXTURE1);
+    m_material.specular->Bind();
 
     for (size_t i = 0; i < cubePositions.size(); i++){
         auto& pos = cubePositions[i];
@@ -234,6 +235,10 @@ bool Context::Init() {
 
     m_material.diffuse = Texture::CreateFromImage(
         Image::Load("./image/container2.png").get()
+        );
+
+    m_material.specular = Texture::CreateFromImage(
+        Image::Load("./image/container2_specular.png").get()
         );
 
     return true;
