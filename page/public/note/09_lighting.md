@@ -1084,5 +1084,82 @@ m_material.specular->Bind();
 
 ---
 
+## Light Casters
+
+- Directional light
+  - 광원이 매우 멀리 떨어져 있어서 모든 지점에 동일한 방향의 광선이 평행하게 발사
+  - 태양광
+
+<div>
+<img src="/opengl_course/note/images/09_directional_light.png" style="width: 40%">
+</div>
+
+---
+
+## Light Casters
+
+- 현재의 light caster를 directional light로 바꿔보자
+
+```glsl [2]
+struct Light {
+  vec3 direction;
+  vec3 ambient;
+  vec3 diffuse;
+  vec3 specular;
+};
+```
+
+```glsl [5]
+void main() {
+  vec3 texColor = texture2D(material.diffuse, texCoord).xyz;
+  vec3 ambient = texColor * light.ambient;
+
+  vec3 lightDir = normalize(-light.direction);
+```
+
+---
+
+## Light Casters
+
+- `Context` 클래스 내의 light parameter 변경
+
+```cpp [2]
+struct Light {
+  glm::vec3 direction { glm::vec3(-0.2f, -1.0f, -0.3f) };
+  glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
+  glm::vec3 diffuse { glm::vec3(0.5f, 0.5f, 0.5f) };
+  glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
+};
+```
+
+---
+
+## Light Casters
+
+- `Context::Render()` 코드 수정
+  - 광원 위치를 그리는 코드는 주석처리해두자
+
+```cpp [3]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.direction", m_light.direction);
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+```
+
+---
+
+## Light Casters
+
+- 빌드 및 실행 결과
+  - 모든 위치의 상자에 대해 동일한 방향의 빛이 적용
+
+<div>
+<img src="/opengl_course/note/images/09_directional_light_apply.png" style="width: 60%">
+</div>
+
+---
+
 ## Congratulation!
 ### 수고하셨습니다!
