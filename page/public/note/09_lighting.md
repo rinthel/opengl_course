@@ -1084,7 +1084,7 @@ m_material.specular->Bind();
 
 ---
 
-## Light Casters
+## Directional Light
 
 - Directional light
   - 광원이 매우 멀리 떨어져 있어서 모든 지점에 동일한 방향의 광선이 평행하게 발사
@@ -1096,7 +1096,7 @@ m_material.specular->Bind();
 
 ---
 
-## Light Casters
+## Directional Light
 
 - 현재의 light caster를 directional light로 바꿔보자
 
@@ -1119,7 +1119,7 @@ void main() {
 
 ---
 
-## Light Casters
+## Directional Light
 
 - `Context` 클래스 내의 light parameter 변경
 
@@ -1134,7 +1134,7 @@ struct Light {
 
 ---
 
-## Light Casters
+## Directional Light
 
 - `Context::Render()` 코드 수정
   - 광원 위치를 그리는 코드는 주석처리해두자
@@ -1150,7 +1150,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
-## Light Casters
+## Directional Light
 
 - 빌드 및 실행 결과
   - 모든 위치의 상자에 대해 동일한 방향의 빛이 적용
@@ -1161,7 +1161,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
-## Light Casters
+## Point Light
 
 - Point light
   - 한 점에서부터 모든 방향으로 광선이 발사
@@ -1175,7 +1175,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
-## Light Casters
+## Point Light
 
 - Attenuation
   - 빛의 감쇠
@@ -1185,7 +1185,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
-## Light Casters
+## Point Light
 
 - Attenumation model
   - d: 광원과 물체 표면 간의 거리
@@ -1199,7 +1199,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
-## Light Casters
+## Point Light
 
 - Ogre3D 엔진에서 사용하는 점 광원 최대 거리에 따른 파라미터
 
@@ -1209,7 +1209,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
-## Light Casters
+## Point Light
 
 - `shader/lighting.fs` 수정
 
@@ -1238,7 +1238,7 @@ vec3 result = (ambient + diffuse + specular) * attenuation;
 
 ---
 
-## Light Casters
+## Point Light
 
 - 최대 거리에 따라 attenuation coefficient를 근사해주는 함수를
   `src/common.*`에 정의 및 구현
@@ -1264,7 +1264,7 @@ glm::vec3 GetAttenuationCoeff(float distance) {
 
 ---
 
-## Light Casters
+## Point Light
 
 - `Context` 클래스 내의 light parameter 변경
 
@@ -1282,7 +1282,7 @@ Light m_light;
 
 ---
 
-## Light Casters
+## Point Light
 
 - `Context::Render()`의 uniform 적용 코드 변경
   - position, distance 수정이 가능하도록 UI 코드를 고쳐보자
@@ -1301,7 +1301,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 
 ---
 
-## Light Casters
+## Point Light
 
 - 빌드 및 결과
   - 점광원으로부터 거리가 멀수록 상자가 어두워 지는 것을 확인
@@ -1309,6 +1309,223 @@ m_program->SetUniform("light.specular", m_light.specular);
 <div>
 <img src="/opengl_course/note/images/09_point_light_apply.png" style="width: 60%">
 </div>
+
+---
+
+## Spot Light
+
+- Spot light
+  - 스포트라이트
+  - 광원의 위치와 방향 모두를 가지고 있음
+  - 광원 방향으로부터 일정 각도만큼만 광선을 발사
+
+<div>
+<img src="/opengl_course/note/images/09_spot_light_model.png" style="width: 30%">
+</div>
+
+---
+
+## Spot Light
+
+- `shader/lighting.fs` 내의 light 관련 파라미터 추가
+
+```glsl [3-4]
+struct Light {
+    vec3 position;
+    vec3 direction;
+    float cutoff;
+    vec3 attenuation;
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+uniform Light light;
+```
+
+---
+
+## Spot Light
+
+- `shader/lighting.fs` 로직 변경
+  - `cutoff`를 벗어난 위치의 경우에는 ambient를 제외한 빛 적용 제외
+
+```glsl
+float theta = dot(lightDir, normalize(-light.direction));
+vec3 result = ambient;
+
+if (theta > light.cutoff) {
+  vec3 pixelNorm = normalize(normal);
+  float diff = max(dot(pixelNorm, lightDir), 0.0);
+  vec3 diffuse = diff * texColor * light.diffuse;
+
+  vec3 specColor = texture2D(material.specular, texCoord).xyz;
+  vec3 viewDir = normalize(viewPos - position);
+  vec3 reflectDir = reflect(-lightDir, pixelNorm);
+  float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+  vec3 specular = spec * specColor * light.specular;
+
+  result += diffuse + specular;
+}
+
+result *= attenuation;
+```
+
+---
+
+## Spot Light
+
+- `Context` 클래스 내의 light parameter 변경
+
+```cpp [4-5]
+// light parameter
+struct Light {
+  glm::vec3 position { glm::vec3(2.0f, 2.0f, 2.0f) };
+  glm::vec3 direction { glm::vec3(-1.0f, -1.0f, -1.0f) };
+  float cutoff { 20.0f };
+  float distance { 32.0f };
+  glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
+  glm::vec3 diffuse { glm::vec3(0.8f, 0.8f, 0.8f) };
+  glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
+};
+Light m_light;
+```
+
+---
+
+## Spot Light
+
+- `Context::Render()`에서 uniform 적용 코드 추가
+  - ImGui를 이용하여 파라미터 변경도 가능하도록 해보자
+
+```cpp [4-5]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.direction", m_light.direction);
+m_program->SetUniform("light.cutoff", cosf(glm::radians(m_light.cutoff)));
+m_program->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+```
+
+---
+
+## Spot Light
+
+- 빌드 및 실행 결과
+  - 광원의 방향을 기준으로 일정한 범위만 조명 적용
+  - 매우 또렷한 경계선
+
+<div>
+<img src="/opengl_course/note/images/09_spot_light_apply.png" style="width: 60%">
+</div>
+
+---
+
+## Spot Light
+
+- 부드러운 경계선을 만드는 방법
+  - 광원의 방향을 기준으로 바깥쪽 각도 / 안쪽 각도를 정한다
+  - 안쪽 각도 내의 빛은 조명을 100% 적용
+  - 안쪽에서 바깥쪽 각도 사이의 빛은 조명을 100%에서 0% 사이에 오게끔 조절
+  - I = (cos(x) - cos(outer)) / (cos(inner) - cos(outer))
+
+---
+
+## Spot Light
+
+- `shader/lighting.fs` 수정
+
+```glsl [4]
+struct Light {
+  vec3 position;
+  vec3 direction;
+  vec2 cutoff;
+  // ...
+```
+
+```glsl [3-7, 12]
+vec3 result = ambient;
+float theta = dot(lightDir, normalize(-light.direction));
+float intensity = clamp(
+  (theta - light.cutoff[1]) / (light.cutoff[0] - light.cutoff[1]),
+  0.0, 1.0);
+
+if (intensity > 0.0) {
+  vec3 pixelNorm = normalize(normal);
+
+  // ...
+
+  result += (diffuse + specular) * intensity;
+```
+
+---
+
+## Spot Light
+
+- `Program` 클래스에서 `glm::vec2`를 인자로 사용할 수 있는 `SetUniform` 함수 추가
+- `Context` 클래스의 `cutoff` 멤버 변수 변경
+  - inner cut-off angle, offset angle
+
+```cpp [5]
+// light parameter
+struct Light {
+  glm::vec3 position { glm::vec3(2.0f, 2.0f, 2.0f) };
+  glm::vec3 direction { glm::vec3(-1.0f, -1.0f, -1.0f) };
+  glm::vec2 cutoff { glm::vec2(20.0f, 5.0f) };
+  // ...
+```
+
+---
+
+## Spot Light
+
+- `Context::Render()`의 uniform 설정 코드 수정
+
+```cpp [5-7]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.direction", m_light.direction);
+m_program->SetUniform("light.cutoff", glm::vec2(
+  cosf(glm::radians(m_light.cutoff[0])),
+  cosf(glm::radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+```
+
+---
+
+## Spot Light
+
+- 빌드 및 실행 결과
+  - 부드러운 경계선
+
+<div>
+<img src="/opengl_course/note/images/09_spot_light_apply_smooth_edge.png" style="width: 80%">
+</div>
+
+---
+
+## Multiple Lights
+
+- 여러 개의 조명 적용
+  - 복수 개의 광원 파라미터를 fragment shader 내에서 처리
+
+```glsl
+out vec4 FragColor;
+void main() {
+  // 결과 색상 초기화
+  vec3 output = vec3(0.0);
+  // directional light에 의한 결과 누적
+  output += someFunctionToCalculateDirectionalLight();
+  // 모든 point light 들에 대해 결과 누적
+  for(int i = 0; i < nr_of_point_lights; i++)
+    output += someFunctionToCalculatePointLight();
+  // spot light에 대한 결과 누적
+  output += someFunctionToCalculateSpotLight();
+  FragColor = vec4(output, 1.0);
+}
+```
 
 ---
 
