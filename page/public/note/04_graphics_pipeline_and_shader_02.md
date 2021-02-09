@@ -429,7 +429,7 @@ void Context::Render() {
 ## OpenGL Remarks
 
 - `glDrawElements(primitive, count, type, pointer/offset)`
-  - 현재 바인딩된 EBO를 바탕으로 그리기
+  - 현재 바인딩된 VAO, VBO, EBO를 바탕으로 그리기
   - `primitive`: 그려낼 기본 primitive 타입
   - `count`: 그리고자 하는 EBO 내 index의 개수
   - `type`: index의 데이터형
@@ -721,7 +721,7 @@ m_indexBuffer = Buffer::CreateWithData(
 - OpenGL을 이용하여 삼각형을 그리는 긴 여정
   - shader object 생성 / 소스 컴파일
   - program object 생성 / shader link
-  - VAO: VBO의 구조에 대한 description
+  - VAO: VBO의 구조에 대한 description, 바인딩된 VBO, EBO 기억
   - VBO: 정점 데이터를 GPU 메모리 상에 위치시킨 object
   - EBO: 인덱스 데이터를 GPU 메모리 상에 위치시킨 object
 

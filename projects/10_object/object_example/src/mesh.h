@@ -2,7 +2,6 @@
 #define __MESH_H__
 
 #include "common.h"
-#include "texture.h"
 #include "buffer.h"
 #include "vertex_layout.h"
 
@@ -15,19 +14,29 @@ struct Vertex {
 CLASS_PTR(Mesh);
 class Mesh {
 public:
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    std::vector<TexturePtr> textures;
+    static MeshUPtr Create(
+        const std::vector<Vertex>& vertices,
+        const std::vector<uint32_t>& indices,
+        uint32_t primitiveType);
+    static MeshUPtr CreateBox();
 
-    VertexLayoutPtr vertexLayout;
-    BufferUPtr vertexBuffer;
-    BufferUPtr indexBuffer;
-};
+    const VertexLayout* GetVertexLayout() const { return m_vertexLayout.get(); }
+    BufferPtr GetVertexBuffer() const { return m_vertexBuffer; }
+    BufferPtr GetIndexBuffer() const { return m_indexBuffer; }
 
-CLASS_PTR(Model);
-class Model {
-public:
-    std::vector<MeshPtr> meshes;
+    void Draw() const;
+
+private:
+    Mesh() {}
+    void Init(
+        const std::vector<Vertex>& vertices,
+        const std::vector<uint32_t>& indices,
+        uint32_t primitiveType);
+
+    uint32_t m_primitiveType { GL_TRIANGLES };
+    VertexLayoutUPtr m_vertexLayout;
+    BufferPtr m_vertexBuffer;
+    BufferPtr m_indexBuffer;
 };
 
 #endif // __MESH_H__
