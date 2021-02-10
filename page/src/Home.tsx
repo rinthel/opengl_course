@@ -43,6 +43,7 @@ function Home() {
         <li><Link to="08_imgui">8. ImGui</Link></li>
         <li><Link to="09_lighting">9. Lighting</Link></li>
         <li><Link to="10_object">10. Object Loading</Link></li>
+        <li><Link to="11_advanced_feature_01">11. Advanced Feature Part. 1</Link></li>
       </ul>
       <h3>문의</h3>
       <h4>권지용 (rinthel AT gmail.com)</h4>
