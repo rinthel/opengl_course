@@ -117,7 +117,12 @@ ExternalProject_Add(
         -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
         -DASSIMP_BUILD_TESTS=OFF
         -DASSIMP_INJECT_DEBUG_POSTFIX=OFF
+        -DASSIMP_BUILD_ZLIB=ON
     TEST_COMMAND ""
     )
 set(DEP_LIST ${DEP_LIST} dep_assimp)
-set(DEP_LIBS ${DEP_LIBS} assimp-vc142-mtd)
+set(DEP_LIBS ${DEP_LIBS}
+    assimp-vc142-mt$<$<CONFIG:Debug>:d>
+    zlibstatic$<$<CONFIG:Debug>:d>
+    IrrXML$<$<CONFIG:Debug>:d>
+    )

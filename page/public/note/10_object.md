@@ -318,7 +318,322 @@ m_box->Draw();
 
 ---
 
+## Dependency
+
+- `Dependency.cmake` 파일에 assimp 라이브러리 추가
+
+```cmake
+# assimp
+ExternalProject_Add(
+  dep_assimp
+  GIT_REPOSITORY "https://github.com/assimp/assimp"
+  GIT_TAG "v5.0.1"
+  GIT_SHALLOW 1
+  UPDATE_COMMAND ""
+  PATCH_COMMAND ""
+  CMAKE_ARGS
+      -DCMAKE_INSTALL_PREFIX=${DEP_INSTALL_DIR}
+      -DBUILD_SHARED_LIBS=OFF
+      -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
+      -DASSIMP_BUILD_TESTS=OFF
+      -DASSIMP_INJECT_DEBUG_POSTFIX=OFF
+      -DASSIMP_BUILD_ZLIB=ON
+  TEST_COMMAND ""
+  )
+set(DEP_LIST ${DEP_LIST} dep_assimp)
+set(DEP_LIBS ${DEP_LIBS}
+  assimp-vc142-mt$<$<CONFIG:Debug>:d>
+  zlibstatic$<$<CONFIG:Debug>:d>
+  IrrXML$<$<CONFIG:Debug>:d>
+  )
+```
+
+---
+
 ## Scene tree
+
+- 3D 장면(scene)을 트리 형식으로 관리하는 방식
+- 대부분의 3D Modeling Tool 들이 이러한 방식으로 장면을 관리
+  - 부모/자식 관계
+  - 자식의 transform 정보 (position / rotation / scale)은
+    부모의 local coordinates를 기준으로 기술됨
+
+---
+
+## Scene tree
+
+- Assimp 라이브러리의 클래스 구조
+
+![](/opengl_course/note/images/10_assimp_structure.png)
+
+---
+
+## Object Loading
+
+- `src/model.h` 파일 생성
+  - 먼저 메쉬 데이터만 로딩하고 그려보자
+
+```cpp
+#ifndef __MODEL_H__
+#define __MODEL_H__
+
+#include "common.h"
+#include "mesh.h"
+
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
+CLASS_PTR(Model);
+class Model {
+public:
+    static ModelUPtr Load(const std::string& filename);
+
+    int GetMeshCount() const { return (int)m_meshes.size(); }
+    MeshPtr GetMesh(int index) const { return m_meshes[index]; }
+    void Draw() const;
+
+private:
+    Model() {}
+    bool LoadByAssimp(const std::string& filename);
+    void ProcessMesh(aiMesh* mesh, const aiScene* scene);
+    void ProcessNode(aiNode* node, const aiScene* scene);
+        
+    std::vector<MeshPtr> m_meshes;
+};
+
+#endif // __MODEL_H__
+```
+
+---
+
+## Object Loading
+
+- `src/model.cpp` 파일 생성 후 `Model::Load()` 구현
+
+```cpp
+ModelUPtr Model::Load(const std::string& filename) {
+  auto model = ModelUPtr(new Model());
+  if (!model->LoadByAssimp(filename))
+    return nullptr;
+  return std::move(model);
+}
+```
+
+---
+
+## Object Loading
+
+- `Model::LoadByAssimp()` 구현
+  - `Assimp::Importer` 클래스의 `ReadFile` 함수 이용
+  - `scene->mRootNode`부터 재귀적으로 처리
+
+```cpp
+bool Model::LoadByAssimp(const std::string& filename) {
+  Assimp::Importer importer;
+  auto scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
+
+  if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+    SPDLOG_ERROR("failed to load model: {}", filename);
+    return false;
+  }
+
+  ProcessNode(scene->mRootNode, scene);
+  return true;
+}
+```
+
+---
+
+## Object Loading
+
+- `Model::ProcessNode()` 구현
+  - `aiNode` 구조체가 가진 `aiMesh` 에 대해서 처리
+
+```cpp
+void Model::ProcessNode(aiNode* node, const aiScene* scene) {
+  for (uint32_t i = 0; i < node->mNumMeshes; i++) {
+    auto meshIndex = node->mMeshes[i];
+    auto mesh = scene->mMeshes[meshIndex];
+    ProcessMesh(mesh, scene);
+  }
+
+  for (uint32_t i = 0; i < node->mNumChildren; i++) {
+    ProcessNode(node->mChildren[i], scene);
+  }
+}
+```
+
+---
+
+## Object Loading
+
+- `Model::ProcessMesh()` 구현
+
+```cpp
+void Model::ProcessMesh(aiMesh* mesh, const aiScene* scene) {
+  SPDLOG_INFO("process mesh: {}, #vert: {}, #face: {}",
+    mesh->mName.C_Str(), mesh->mNumVertices, mesh->mNumFaces);
+
+  std::vector<Vertex> vertices;
+  vertices.resize(mesh->mNumVertices);
+  for (uint32_t i = 0; i < mesh->mNumVertices; i++) {
+    auto& v = vertices[i];
+    v.position = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+    v.normal = glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
+    v.texCoord = glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
+  }
+
+  std::vector<uint32_t> indices;
+  indices.resize(mesh->mNumFaces * 3);
+  for (uint32_t i = 0; i < mesh->mNumFaces; i++) {
+    indices[3*i  ] = mesh->mFaces[i].mIndices[0];
+    indices[3*i+1] = mesh->mFaces[i].mIndices[1];
+    indices[3*i+2] = mesh->mFaces[i].mIndices[2];
+  }
+
+  auto glMesh = Mesh::Create(vertices, indices, GL_TRIANGLES);
+  m_meshes.push_back(std::move(glMesh));
+}
+
+```
+
+---
+
+## Object Loading
+
+- `Model::Draw()` 구현
+
+```cpp
+void Model::Draw() const {
+  for (auto& mesh: m_meshes) {
+    mesh->Draw();
+  }
+}
+```
+
+---
+
+## Object Loading
+
+- `Context` 클래스에 `Model` 인스턴스 멤버 추가
+
+```cpp [2]
+MeshUPtr m_box;
+ModelUPtr m_model;
+```
+
+---
+
+## Object Loading
+
+- `Context::Init()`에서 obj 파일 로딩
+
+```cpp
+m_model = Model::Load("./model/backpack.obj");
+if (!m_model)
+    return false;
+```
+
+---
+
+## Object Loading
+
+- 적절한 텍스처를 로딩하기 단일 색상 텍스처를 이용하기 위해 `Image` 클래스에
+  새로운 생성 함수 `Image::CreateSingleColorImage()` 추가
+
+```cpp [5-6]
+class Image {
+public:
+  static ImageUPtr Load(const std::string& filepath);
+  static ImageUPtr Create(int width, int height, int channelCount = 4);
+  static ImageUPtr CreateSingleColorImage(
+    int width, int height, const glm::vec4& color);
+  ~Image();
+```
+
+---
+
+## Object Loading
+
+- `Image::CreateSingleColorImage()` 구현
+
+```cpp
+ImageUPtr Image::CreateSingleColorImage(
+  int width, int height, const glm::vec4& color) {
+  glm::vec4 clamped = glm::clamp(color * 255.0f, 0.0f, 255.0f);
+  uint8_t rgba[4] = {
+    (uint8_t)clamped.r, 
+    (uint8_t)clamped.g, 
+    (uint8_t)clamped.b, 
+    (uint8_t)clamped.a, 
+  };
+  auto image = Create(width, height, 4);
+  for (int i = 0; i < width * height; i++) {
+    memcpy(image->m_data + 4 * i, rgba, 4);
+  }
+  return std::move(image);
+}
+```
+
+---
+
+## Object Loading
+
+- `image/container*` 파일 로딩 대신 흰색 diffuse 텍스처, 회색 specular 텍스처 생성
+
+```cpp
+m_material.diffuse = Texture::CreateFromImage(
+  Image::CreateSingleColorImage(4, 4,
+    glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)).get());
+
+m_material.specular = Texture::CreateFromImage(
+  Image::CreateSingleColorImage(4, 4,
+    glm::vec4(0.5f, 0.5f, 0.5f, 1.0f)).get());
+```
+
+---
+
+## Object Loading
+
+- `Context::Render()`의 회전하는 박스 렌더링 코드 제거
+- `Model` 렌더링 코드 추가
+
+```cpp
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.direction", m_light.direction);
+m_program->SetUniform("light.cutoff", glm::vec2(
+  cosf(glm::radians(m_light.cutoff[0])),
+  cosf(glm::radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+m_program->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+
+m_program->SetUniform("material.diffuse", 0);
+m_program->SetUniform("material.specular", 1);
+m_program->SetUniform("material.shininess", m_material.shininess);
+glActiveTexture(GL_TEXTURE0);
+m_material.diffuse->Bind();
+glActiveTexture(GL_TEXTURE1);
+m_material.specular->Bind();
+
+auto modelTransform = glm::mat4(1.0f);
+auto transform = projection * view * modelTransform;
+m_program->SetUniform("transform", transform);
+m_program->SetUniform("modelTransform", modelTransform);
+m_model->Draw();
+```
+
+---
+
+## Object Loading
+
+- 빌드 및 실행 결과
+
+![](/opengl_course/note/images/10_assimp_model_loading.png)
 
 ---
 
