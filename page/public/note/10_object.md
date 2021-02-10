@@ -633,7 +633,214 @@ m_model->Draw();
 
 - 빌드 및 실행 결과
 
-![](/opengl_course/note/images/10_assimp_model_loading.png)
+<div>
+<img src="/opengl_course/note/images/10_assimp_model_loading.png" style="width: 75%"/>
+</div>
+
+---
+
+## Material Loading
+
+- 모델의 모든 재질 데이터 생성
+- 각 메쉬별로 재질 할당
+
+---
+
+## Material Loading
+
+- `Context` 클래스 내에 선언되어 있던 재질 구조체를 `src/mesh.h`로 이동
+  - `Context` 클래스 내의 `Material` 관련 코드들 수정
+
+```cpp
+CLASS_PTR(Material);
+class Material {
+public:
+    static MaterialUPtr Create() {
+        return MaterialUPtr(new Material());
+    }
+    TexturePtr diffuse;
+    TexturePtr specular;
+    float shininess { 32.0f };
+
+private:
+    Material() {}
+};
+```
+
+---
+
+## Material Loading
+
+- `Mesh` 클래스 내에 `Material` 하나를 저장할 멤버 변수 선언
+
+```cpp [3-4, 8]
+public:
+  // ...
+  void SetMaterial(MaterialPtr material) { m_material = material; }
+  MaterialPtr GetMaterial() const { return m_material; }
+
+private:
+  // ...
+  MaterialPtr m_material;
+```
+
+- `Model` 클래스 내에 `Material` 들을 저장할 배열 멤버 변수 선언
+
+```cpp [2]
+  std::vector<MeshPtr> m_meshes;
+  std::vector<MaterialPtr> m_materials;
+```
+
+---
+
+## Material Loading
+
+- `Model::LoadByAssimp()` 함수 내에 텍스처를 읽어들여서 `Material`
+  배열을 생성하는 코드를 `ProcessNode()` 호출 전에 추가
+
+```cpp
+auto dirname = filename.substr(0, filename.find_last_of("/"));
+auto LoadTexture = [&](aiMaterial* material, aiTextureType type) -> TexturePtr {
+  if (material->GetTextureCount(type) <= 0)
+    return nullptr;
+  aiString filepath;
+  material->GetTexture(aiTextureType_DIFFUSE, 0, &filepath);
+  auto image = Image::Load(fmt::format("{}/{}", dirname, filepath.C_Str()));
+  if (!image)
+    return nullptr;
+  return Texture::CreateFromImage(image.get());
+};
+
+for (uint32_t i = 0; i < scene->mNumMaterials; i++) {
+  auto material = scene->mMaterials[i];
+  auto glMaterial = Material::Create();
+  glMaterial->diffuse = LoadTexture(material, aiTextureType_DIFFUSE);
+  glMaterial->specular = LoadTexture(material, aiTextureType_SPECULAR);
+  m_materials.push_back(std::move(glMaterial));
+}
+
+ProcessNode(scene->mRootNode, scene);
+```
+
+---
+
+## Material Loading
+
+- 람다 클로저 (C++11 이상)
+  - `std::function<>` 타입에 대입 가능한 함수
+  - 캡처 부분에 `&`를 넣으면 해당 클로저 상위 스코프의 모든 값에 접근 가능
+
+```cpp
+[capture, ...] (param_type parameters, ...) -> return_type {
+  // ... closure body statements
+}
+```
+
+---
+
+## Material Loading
+
+- `Model::ProcessNode()` 함수에서 `aiMesh::mMaterialIndex`를 보고
+  `Material`을 설정
+
+```cpp [1-3]
+auto glMesh = Mesh::Create(vertices, indices, GL_TRIANGLES);
+if (mesh->mMaterialIndex >= 0)
+  glMesh->SetMaterial(m_materials[mesh->mMaterialIndex]);
+
+m_meshes.push_back(std::move(glMesh));
+```
+
+---
+
+## Material Loading
+
+- `Mesh::Draw()` 구현 변경
+  - `Program`을 인자로 받아서 `Material`이 설정되어 있을 경우 텍스처를 설정
+
+```cpp
+void Mesh::Draw(const Program* program) const {
+  m_vertexLayout->Bind();
+  if (m_material) {
+    int textureCount = 0;
+    if (m_material->diffuse) {
+      glActiveTexture(GL_TEXTURE0 + textureCount);
+      program->SetUniform("material.diffuse", textureCount);
+      m_material->diffuse->Bind();
+      textureCount++;
+    }
+    if (m_material->specular) {
+      glActiveTexture(GL_TEXTURE0 + textureCount);
+      program->SetUniform("material.diffuse", textureCount);
+      m_material->diffuse->Bind();
+      textureCount++;
+    }
+    glActiveTexture(GL_TEXTURE0);
+    program->SetUniform("material.shininess", m_material->shininess);
+  }
+  glDrawElements(m_primitiveType, m_indexBuffer->GetCount(), GL_UNSIGNED_INT, 0);
+}
+```
+
+---
+
+## Material Loading
+
+- `Model::Draw()` 구현 변경
+
+```cpp [1, 3]
+void Model::Draw(const Program* program) const {
+  for (auto& mesh: m_meshes) {
+    mesh->Draw(program);
+  }
+}
+```
+
+---
+
+## Material Loading
+
+- `Context::Render()` 구현 변경
+
+```cpp [17]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.direction", m_light.direction);
+m_program->SetUniform("light.cutoff", glm::vec2(
+    cosf(glm::radians(m_light.cutoff[0])),
+    cosf(glm::radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+m_program->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+
+auto modelTransform = glm::mat4(1.0f);
+auto transform = projection * view * modelTransform;
+m_program->SetUniform("transform", transform);
+m_program->SetUniform("modelTransform", modelTransform);
+m_model->Draw(m_program.get());
+```
+
+---
+
+## Material Loading
+
+- 빌드 및 실행 결과
+
+<div>
+<img src="/opengl_course/note/images/10_assimp_model_loading_texture.png" style="width: 75%"/>
+</div>
+
+---
+
+## TO-DO
+
+- 아직 로딩하지 못한 텍스처
+  - `normal.png`: normal mapping
+  - `roughness.jpg`: physics-based shader
+  - `ao.jpg`: ambient occlusion map
+  - 고급 쉐이딩 기법에서 다룸
 
 ---
 

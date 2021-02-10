@@ -51,12 +51,7 @@ private:
     Light m_light;
 
     // material parameter
-    struct Material {
-        TextureUPtr diffuse;
-        TextureUPtr specular;
-        float shininess { 32.0f };
-    };
-    Material m_material;
+    MaterialPtr m_material;
 
     // camera parameter
     bool m_cameraControl { false };

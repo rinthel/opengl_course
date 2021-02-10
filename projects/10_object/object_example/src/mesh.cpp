@@ -70,7 +70,24 @@ void Mesh::Init(
     m_vertexLayout->SetAttrib(2, 2, GL_FLOAT, false, sizeof(Vertex), offsetof(Vertex, texCoord));
 }
 
-void Mesh::Draw() const {
+void Mesh::Draw(const Program* program) const {
     m_vertexLayout->Bind();
+    if (m_material) {
+        int textureCount = 0;
+        if (m_material->diffuse) {
+            glActiveTexture(GL_TEXTURE0 + textureCount);
+            program->SetUniform("material.diffuse", textureCount);
+            m_material->diffuse->Bind();
+            textureCount++;
+        }
+        if (m_material->specular) {
+            glActiveTexture(GL_TEXTURE0 + textureCount);
+            program->SetUniform("material.diffuse", textureCount);
+            m_material->diffuse->Bind();
+            textureCount++;
+        }
+        glActiveTexture(GL_TEXTURE0);
+        program->SetUniform("material.shininess", m_material->shininess);
+    }
     glDrawElements(m_primitiveType, m_indexBuffer->GetCount(), GL_UNSIGNED_INT, 0);
 }

@@ -81,7 +81,7 @@ void Context::Render() {
         }
 
         if (ImGui::CollapsingHeader("material", ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::DragFloat("m.shininess", &m_material.shininess, 1.0f, 1.0f, 256.0f);
+            ImGui::DragFloat("m.shininess", &m_material->shininess, 1.0f, 1.0f, 256.0f);
         }
 
         ImGui::Checkbox("animation", &m_animation);
@@ -124,7 +124,7 @@ void Context::Render() {
     m_simpleProgram->Use();
     m_simpleProgram->SetUniform("color", glm::vec4(m_light.ambient + m_light.diffuse, 1.0f));
     m_simpleProgram->SetUniform("transform", projection * view * lightModelTransform);
-    m_box->Draw();
+    m_box->Draw(m_simpleProgram.get());
 
     m_program->Use();
     m_program->SetUniform("viewPos", m_cameraPos);
@@ -138,19 +138,11 @@ void Context::Render() {
     m_program->SetUniform("light.diffuse", m_light.diffuse);
     m_program->SetUniform("light.specular", m_light.specular);
 
-    m_program->SetUniform("material.diffuse", 0);
-    m_program->SetUniform("material.specular", 1);
-    m_program->SetUniform("material.shininess", m_material.shininess);
-    glActiveTexture(GL_TEXTURE0);
-    m_material.diffuse->Bind();
-    glActiveTexture(GL_TEXTURE1);
-    m_material.specular->Bind();
-
     auto modelTransform = glm::mat4(1.0f);
     auto transform = projection * view * modelTransform;
     m_program->SetUniform("transform", transform);
     m_program->SetUniform("modelTransform", modelTransform);
-    m_model->Draw();
+    m_model->Draw(m_program.get());
 }
 
 bool Context::Init() {
@@ -173,11 +165,12 @@ bool Context::Init() {
     if (!m_model)
         return false;
 
-    m_material.diffuse = Texture::CreateFromImage(
+    m_material = Material::Create();
+    m_material->diffuse = Texture::CreateFromImage(
         Image::CreateSingleColorImage(4, 4,
             glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)).get());
 
-    m_material.specular = Texture::CreateFromImage(
+    m_material->specular = Texture::CreateFromImage(
         Image::CreateSingleColorImage(4, 4,
             glm::vec4(0.5f, 0.5f, 0.5f, 1.0f)).get());
 
