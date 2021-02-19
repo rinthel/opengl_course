@@ -27,6 +27,10 @@ function Home() {
       <ul>
         <li><a href="https://github.com/rinthel/opengl_course">Github 저장소</a></li>
       </ul>
+      <h3>참고 문헌</h3>
+      <ul>
+        <li><a href="https://learnopengl.com">learnopengl.com</a></li>
+      </ul>
       <h3>슬라이드 노트</h3>
       <ul>
         <li><Link to="01_introduction">1. Introduction</Link></li>
@@ -43,7 +47,14 @@ function Home() {
         <li><Link to="08_imgui">8. ImGui</Link></li>
         <li><Link to="09_lighting">9. Lighting</Link></li>
         <li><Link to="10_object">10. Object Loading</Link></li>
+      </ul>
+      <h4>on writing</h4>
+      <ul>
         <li><Link to="11_advanced_feature_01">11. Advanced Feature Part. 1</Link></li>
+        <li><Link to="12_advanced_feature_02">12. Advanced Feature Part. 2</Link></li>
+        <li><Link to="13_advanced_lighting_01">13. Advanced Lighting Part. 1</Link></li>
+        <li><Link to="14_advanced_lighting_02">14. Advanced Lighting Part. 2</Link></li>
+        <li><Link to="15_physics_based_rendering">15. Physics-Based Rendering</Link></li>
       </ul>
       <h3>문의</h3>
       <h4>권지용 (rinthel AT gmail.com)</h4>

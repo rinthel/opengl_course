@@ -91,7 +91,7 @@ Computer Graphics with OpenGL
 ## Syllabus
 
 13. Advanced Lighting (1)
-14. AdVanced Lighting (2)
+14. Advanced Lighting (2)
 15. Physics-Based Rendering
 
 ---
