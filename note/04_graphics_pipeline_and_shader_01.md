@@ -49,8 +49,13 @@
 
 - `CMakeLists.txt`의 프로젝트 이름 변경
 
-```cmake
+```cmake [1,4]
 set(PROJECT_NAME first_opengl_example)
+set(CMAKE_CXX_STANDARD 17)
+
+set(WINDOW_NAME "First OpenGL Example")
+set(WINDOW_WIDTH 640)
+set(WINDOW_HEIGHT 480)
 ```
 
 - 빌드 도구 선택 후 빌드
@@ -114,7 +119,8 @@ glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 ```cpp [9]
 // glfw 윈도우 생성, 실패하면 에러 출력후 종료
 SPDLOG_INFO("Create glfw window");
-auto window = glfwCreateWindow(640, 480, "Hello, OpenGL!", nullptr, nullptr);
+auto window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_NAME,
+  nullptr, nullptr);
 if (!window) {
     SPDLOG_ERROR("failed to create glfw window");
     glfwTerminate();
@@ -224,7 +230,7 @@ void OnKeyEvent(GLFWwindow* window,
 ```cpp
 // ... context 지정 부분
 
-OnFramebufferSizeChange(window, 640, 480);
+OnFramebufferSizeChange(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 glfwSetFramebufferSizeCallback(window, OnFramebufferSizeChange);
 glfwSetKeyCallback(window, OnKeyEvent);
 
@@ -1195,6 +1201,7 @@ if (!context) {
 ## `Context` 클래스 사용
 
 - 메인 루프에서 이전의 `Render()` 대신 `Context`의 `Render()` 호출
+- 메인 루푸 종료 후 `std::unique_ptr`의 `reset()`을 호출하여 메모리 정리
 - 빌드 및 실행후 파란 화면 / 로그 확인
 
 ```cpp
@@ -1204,6 +1211,7 @@ while (!glfwWindowShouldClose(window)) {
   glfwSwapBuffers(window);
   glfwPollEvents();
 }
+context.reset();
 ```
 
 ---

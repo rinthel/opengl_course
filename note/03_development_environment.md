@@ -129,7 +129,7 @@ int main(int argc, const char** argv) {
 - `CMakeLists.txt` 파일 작성
 
 ```cmake
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 set(PROJECT_NAME cmake_project_example)
 set(CMAKE_CXX_STANDARD 17)
@@ -440,7 +440,7 @@ set(DEP_LIBS ${DEP_LIBS} spdlog$<$<CONFIG:Debug>:d>)
 - `CMakeLists.txt` 파일에서 `Dependency.cmake` 불러오기
 
 ```cmake
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.13)
 
 set(PROJECT_NAME cmake_project_example)
 set(CMAKE_CXX_STANDARD 17)
@@ -520,6 +520,45 @@ set(DEP_LIBS ${DEP_LIBS} glfw3)
 
 ## GLFW로 윈도우를 생성하기
 
+- `CMakeLists.txt`에 환경 변수 추가
+
+```cmake [6-8]
+cmake_minimum_required(VERSION 3.13)
+
+set(PROJECT_NAME cmake_project_example)
+set(CMAKE_CXX_STANDARD 17)
+
+set(WINDOW_NAME "Hello, OpenGL!")
+set(WINDOW_WIDTH 640)
+set(WINDOW_HEIGHT 480)
+
+project(${PROJECT_NAME})
+add_executable(${PROJECT_NAME} src/main.cpp)
+```
+
+---
+
+## GLFW로 윈도우를 생성하기
+
+- 환경 변수를 predefined macro로 프로젝트에 추가
+
+```cmake [5-9]
+target_include_directories(${PROJECT_NAME} PUBLIC ${DEP_INCLUDE_DIR})
+target_link_directories(${PROJECT_NAME} PUBLIC ${DEP_LIB_DIR})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${DEP_LIBS})
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+  WINDOW_NAME="${WINDOW_NAME}"
+  WINDOW_WIDTH=${WINDOW_WIDTH}
+  WINDOW_HEIGHT=${WINDOW_HEIGHT}
+  )
+```
+
+
+---
+
+## GLFW로 윈도우를 생성하기
+
 - `src/main.cpp`를 다음과 같이 수정 (1)
 
 ```cpp
@@ -557,7 +596,8 @@ int main(int argc, const char** argv) {
 ```cpp
     // glfw 윈도우 생성, 실패하면 에러 출력후 종료
     SPDLOG_INFO("Create glfw window");
-    auto window = glfwCreateWindow(640, 480, "Hello, OpenGL!", nullptr, nullptr);
+    auto window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_NAME,
+      nullptr, nullptr);
     if (!window) {
         SPDLOG_ERROR("failed to create glfw window");
         glfwTerminate();

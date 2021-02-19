@@ -70,29 +70,29 @@ Computer Graphics with OpenGL
 
 1. Introduction
 2. Computer graphics + OpenGL
-3. Development environment
-4. Graphics pipeline and shader
-5. Vectors Matrices, and Uniform Variables
+3. Development Environment
+4. Graphics Pipeline and Shader
+5. GLSL
+6. Texture
 
 ---
 
 ## Syllabus
 
-6. Geometric transformation / Projection
-7. Object loading
-8. Camera, keyboard/mouse interaction
-9. Texture
-10. Lighting
+7. Transformation
+8. ImGui
+9. Lighting
+10. Object loading
+11. Advanced Feature (1)
+12. Advanced Feature (2)
 
 ---
 
 ## Syllabus
 
-11. ImGui
-12. Shadow
-13. Skybox + Environment map
-14. Normal shader
-15. Physics based shader
+13. Advanced Lighting (1)
+14. Advanced Lighting (2)
+15. Physics-Based Rendering
 
 ---
 
