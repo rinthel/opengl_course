@@ -42,7 +42,7 @@ Computer Graphics with OpenGL
 
 - [learnopengl.com](https://learnopengl.com)
   - 이론 설명 방향과 예시 데이터는 동일
-  - 코드는 참고만
+  - 코드는 전면 재작성함
 - [OpenGL SuperBible 7th edition](https://www.openglsuperbible.com)
   - 좀 더 자세한 내용을 알고 싶을 경우
 
