@@ -34,13 +34,17 @@ Computer Graphics with OpenGL
 
 - C/C++ 문법
 - 기초 기하학 / 선형대수학
+  - 행렬 / 벡터 / 내적 / 외적
 
 ---
 
 ## References
 
 - [learnopengl.com](https://learnopengl.com)
+  - 이론 설명 방향과 예시 데이터는 동일
+  - 코드는 전면 재작성함
 - [OpenGL SuperBible 7th edition](https://www.openglsuperbible.com)
+  - 좀 더 자세한 내용을 알고 싶을 경우
 
 ---
 
@@ -55,14 +59,16 @@ Computer Graphics with OpenGL
   - GLFW (for window / input)
   - GLAD (for OpenGL function loading)
   - ImGui (for GUI)
+  - Assimp
 
 ---
 
 ## Evaluation
 
-- 4 small assignments (10% for each)
-- Mid-term project (25%)
-- Final project (35%)
+- Attendance check (10%)
+- 2 small assignments (10% for each)
+- Mid-term project (30%)
+- Final project (40%)
 
 ---
 
