@@ -19,8 +19,16 @@ Computer Graphics with OpenGL
 - Windows
   - 콘솔창에서 code 명령어로 vscode 열기 기능 체크 확인
 - macOS, Linux
-  - <span class="keystroke">ctrl-shift-P</span> 를 눌러서 커멘드 팔렛 열기
-  - `shell` 로 검색하여 동일한 기능 설치
+  - 설치 및 실행 후 <span class="keystroke">ctrl-shift-P</span> 를 눌러서 커멘드 팔렛 열기
+  - `shell` 로 검색하여 동일한 기능 활성화 가능
+
+---
+
+## Visual Studio 2019 Community Edition
+
+- 마이크로소프트가 만든 개발 환경
+- C++ 컴파일러 및 링커 등이 여기에 포함되어 있음
+- [https://visualstudio.microsoft.com/ko/vs/community/](https://visualstudio.microsoft.com/ko/vs/community/)
 
 ---
 
@@ -67,11 +75,19 @@ Computer Graphics with OpenGL
 
 ## 프로젝트 시작하기
 
+- 새 프로젝트를 위한 디렉토리를 생성한 뒤 VSCode 실행
+
 ```console
 > mkdir cmake_project_example
 > cd cmake_project_example
 > code .
 ```
+
+---
+
+## VSCode 화면
+
+![](/opengl_course/note/images/03_vscode.png)
 
 ---
 
@@ -101,7 +117,7 @@ Computer Graphics with OpenGL
 
 ## VSCode Extension 설치
 
-- 익스텐션 설치하기
+- 익스텐션 탭을 열고 다음을 검색 후 설치
   - C/C++
   - C++ Intellisense
   - CMake
@@ -197,6 +213,7 @@ Hello World!
 
 ## VSCode + CMake 커맨드
 
+- 익스텐션 기능을 통해 CMake 커맨드를 실행시켜줄 수 있음
 - 여러 가지 방식을 지원
   - 커맨드 팔렛에서 `cmake`로 검색하여 원하는 기능 실행
   - 화면 최하단 상태 바의 메뉴로 원하는 기능 실행
@@ -208,12 +225,17 @@ Hello World!
 
 - 소스 코드의 생성 / 삭제 / 수정 내역을 기록하여 소프트웨어의 버전을 관리해주는 시스템
 - svn, perforce, mercury, git...
+- 다양한 장점
+  - 코드의 버전 관리
+  - 코드의 백업
+  - 다른 사람들과 코드를 공유
+  - 여러 컴퓨터에서 코드를 사용할 수 있음
 
 ---
 
 ## git
 
-- 현재 가장 대표적인 VCS
+- 가장 대표적인 VCS이면서, 가장 많이 사용되고 있음
 - Linux를 만든 Linus B. Torvalds 가 여러 Linux 개발자들과 코드 관리를 하기 위해 개발
 - 다양한 호스팅 업체들 서비스중
   - [github](https://github.com/)
@@ -234,33 +256,47 @@ Hello World!
 
 ---
 
-## 일반적인 git 작업의 흐름
-
-- 코드 다운로드
-  - 코드 클론 (일괄 다운로드)
-  - 브랜치 풀 (pull)
-- 브랜치 생성
-- 브랜치 체크아웃
-- 코드 작성
-- 코드 커밋
-- 브랜치 푸시
-- 브랜치 머지
-
----
-
 ## git 시작하기
 
+- 새로운 git 프로젝트 초기화
 - 프로젝트 루트에서 다음을 실행
 
 ```console
 > git init
 ```
 
+- 실행하면 `.git` 디렉토리가 생성되고 git 실행에 필요한 데이터가 여기 저장된다
+
+---
+
+## git status
+
+- 현재의 git 프로젝트 상태를 확인하는 명령
+
+```console
+$ git status
+On branch master
+
+No commits yet  
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+        CMakeLists.txt
+        build/
+        src/
+
+nothing added to commit but untracked files present (use "git add" to track)
+```
+
+- VSCode의 Source Control 탭에도 변경사항에 대한 정보를 확인할 수 있음
+
 ---
 
 ## gitignore
 
-- `.gitignore` 파일을 작성
+- 관리 및 백업이 필요치 않은 파일들을 제외시키는 작업
+- `.gitignore` 파일에 관리 대상에서 제외할 리스트를 작성
 
 ```
 build/
@@ -272,12 +308,14 @@ build/
 
 ## git commit
 
-- 파일 변경 사항을 모두 staging하고 변경 내역 저장
+- 파일 변경 사항을 모두 staging하고 변경 내역을 저장
 
 ```console
 > git add .
 > git commit -m first commit
 ```
+
+- `git log`를 사용하여 현재까지 적용된 commit들을 확인할 수 있음
 
 ---
 
@@ -311,6 +349,22 @@ build/
 > git push -u origin main
 ```
 
+- 완료되면 github repository 페이지에서 새로고침하여 코드가 업로드된걸 확인해보자
+
+---
+
+## 일반적인 git 작업의 흐름
+
+- 코드 다운로드
+  - 코드 클론 (일괄 다운로드)
+  - 브랜치 풀 (pull)
+- 브랜치 생성
+- 브랜치 체크아웃
+- 코드 작성
+- 코드 커밋
+- 브랜치 푸시
+- 브랜치 머지
+
 ---
 
 ## git client
@@ -326,6 +380,12 @@ build/
 - macOS / Windows 크로스 플랫폼
 - 깔끔한 Native UI
 - 개인적으로 사용해본 git client 중 가장 빠르고 말썽이 없음
+
+---
+
+## Fork git client
+
+![](/opengl_course/note/images/03_fork.png)
 
 ---
 
