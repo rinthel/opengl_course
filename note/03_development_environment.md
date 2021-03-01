@@ -95,7 +95,7 @@ Computer Graphics with OpenGL
 
 - 화면 구성
   - Sidebar (화면 좌측)
-    - 파일 탐색, 검색, SCM, 디버그, 익스텐션
+    - 파일 탐색, 검색, 소스 컨트롤, 디버그, 익스텐션
   - Editor (화면 우측)
     - 문서 에디팅 화면
   - 화면 하단
@@ -156,31 +156,6 @@ add_executable(${PROJECT_NAME} src/main.cpp)
 
 ---
 
-## VSCode + CMake 프로젝트 설정
-
-- 커멘드 팔렛을 열고 (ctrl+shift+P) cmake 검색
-- 'cmake: configure' 명령 선택
-- 이 프로젝트를 빌드할 도구셋 선택
-  - Windows+Intel: `Visual Studio 2019 Release - x86_64`
-  - Windows+AMD: `Visual Studio 2019 Release - amd64`
-  - build 디렉토리 자동 생성
-- Intellisense 구성 허용
-  - `.vscode` 디렉토리 생성
-
----
-
-## VSCode + CMake 프로젝트 설정
-
-- 빌드: F7
-- 디버그 실행: ctrl+F5
-- Debug Console 화면에 `Hello, World!` 출력 확인
-
-```text
-Hello World!
-```
-
----
-
 ## CMake의 작동 방식
 
 - Meta-project description
@@ -221,8 +196,34 @@ Hello World!
 
 ---
 
+## VSCode + CMake 프로젝트 설정
+
+- 커멘드 팔렛을 열고 (ctrl+shift+P) cmake 검색
+- 'cmake: configure' 명령 선택
+- 이 프로젝트를 빌드할 도구셋 선택
+  - Windows+Intel: `Visual Studio 2019 Release - x86_64`
+  - Windows+AMD: `Visual Studio 2019 Release - amd64`
+  - build 디렉토리 자동 생성
+- Intellisense 구성 허용
+  - `.vscode` 디렉토리 생성
+
+---
+
+## VSCode + CMake 프로젝트 설정
+
+- 빌드: F7
+- 디버그 실행: ctrl+F5
+- Debug Console 화면에 `Hello, World!` 출력 확인
+
+```text
+Hello World!
+```
+
+---
+
 ## VCS
 
+- Version Control System / Source Control
 - 소스 코드의 생성 / 삭제 / 수정 내역을 기록하여 소프트웨어의 버전을 관리해주는 시스템
 - svn, perforce, mercury, git...
 - 다양한 장점
@@ -235,8 +236,8 @@ Hello World!
 
 ## git
 
-- 가장 대표적인 VCS이면서, 가장 많이 사용되고 있음
 - Linux를 만든 Linus B. Torvalds 가 여러 Linux 개발자들과 코드 관리를 하기 위해 개발
+- 가장 대표적인 VCS이면서, 가장 많이 사용되고 있음
 - 다양한 호스팅 업체들 서비스중
   - [github](https://github.com/)
   - [gitlab](https://about.gitlab.com/)
@@ -319,6 +320,21 @@ build/
 
 ---
 
+## Fork git client
+
+- [https://git-fork.com/](https://git-fork.com/)
+- macOS / Windows 크로스 플랫폼
+- 깔끔한 Native UI
+- 개인적으로 사용해본 git client 중 가장 빠르고 말썽이 없음
+
+---
+
+## Fork git client
+
+![](/opengl_course/note/images/03_fork.png)
+
+---
+
 ## github
 
 - 가장 대표적인 git 호스팅 서비스
@@ -371,21 +387,6 @@ build/
 
 - git을 보다 편하게 사용할 수 있게 도와주는 GUI 클라이언트
 - SourceTree, GitHub Desktop, TortoiseGit 등등...
-
----
-
-## Fork git client
-
-- [https://git-fork.com/](https://git-fork.com/)
-- macOS / Windows 크로스 플랫폼
-- 깔끔한 Native UI
-- 개인적으로 사용해본 git client 중 가장 빠르고 말썽이 없음
-
----
-
-## Fork git client
-
-![](/opengl_course/note/images/03_fork.png)
 
 ---
 
