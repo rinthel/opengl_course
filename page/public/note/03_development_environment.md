@@ -320,6 +320,13 @@ build/
 
 ---
 
+## git client
+
+- git을 보다 편하게 사용할 수 있게 도와주는 GUI 클라이언트
+- SourceTree, GitHub Desktop, TortoiseGit 등등...
+
+---
+
 ## Fork git client
 
 - [https://git-fork.com/](https://git-fork.com/)
@@ -380,13 +387,6 @@ build/
 - 코드 커밋
 - 브랜치 푸시
 - 브랜치 머지
-
----
-
-## git client
-
-- git을 보다 편하게 사용할 수 있게 도와주는 GUI 클라이언트
-- SourceTree, GitHub Desktop, TortoiseGit 등등...
 
 ---
 
@@ -572,13 +572,6 @@ set(DEP_LIBS ${DEP_LIBS} glfw3)
 
 ---
 
-## CMake debug tip
-
-- `message()` 를 활용하여 중간의 변수값을 출력해볼 수 있다
-- `set(CMAKE_VERBOSE_MAKEFILE ON)` 을 활용하면 세부적인 빌드 커맨드를 볼 수 있다
-
----
-
 ## GLFW로 윈도우를 생성하기
 
 - `CMakeLists.txt`에 환경 변수 추가
@@ -700,6 +693,13 @@ int main(int argc, const char** argv) {
 [2021-01-02 20:21:37.544] [info] [main.cpp:18] Create glfw window
 [2021-01-02 20:21:37.824] [info] [main.cpp:27] Start main loop
 ```
+
+---
+
+## CMake debug tip
+
+- `message()` 를 활용하여 중간의 변수값을 출력해볼 수 있다
+- `set(CMAKE_VERBOSE_MAKEFILE ON)` 을 활용하면 세부적인 빌드 커맨드를 볼 수 있다
 
 ---
 
