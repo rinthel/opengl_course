@@ -2,6 +2,17 @@
 
 ---
 
+## 예제 준비
+
+- `object_example` 프로젝트를 복사하여 `advanced_feature_example` 프로젝트 생성
+- 빌드 및 실행 확인
+
+---
+
+## Depth testing
+
+---
+
 ## Depth testing
 
 - enabling depth test
