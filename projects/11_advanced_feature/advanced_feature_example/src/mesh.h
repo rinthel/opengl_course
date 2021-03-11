@@ -23,6 +23,8 @@ public:
     TexturePtr specular;
     float shininess { 32.0f };
 
+    void SetToProgram(const Program* program) const;
+
 private:
     Material() {}
 };
