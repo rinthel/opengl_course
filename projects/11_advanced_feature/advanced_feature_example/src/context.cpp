@@ -163,6 +163,16 @@ void Context::Render() {
     m_box2Material->SetToProgram(m_program.get());
     m_box->Draw(m_program.get());
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 4.0f));
+    transform = projection * view * modelTransform;
+    m_textureProgram->Use();
+    m_textureProgram->SetUniform("transform", transform);
+    m_windowMaterial->SetToProgram(m_textureProgram.get());
+    m_plane->Draw(m_textureProgram.get());
+
     // // stencil outline
     // glEnable(GL_STENCIL_TEST);
     // glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
@@ -199,6 +209,7 @@ bool Context::Init() {
     glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
 
     m_box = Mesh::CreateBox();
+    m_plane = Mesh::CreatePlane();
 
     m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
     if (!m_simpleProgram)
@@ -206,6 +217,10 @@ bool Context::Init() {
 
     m_program = Program::Create("./shader/lighting.vs", "./shader/lighting.fs");
     if (!m_program)
+        return false;
+
+    m_textureProgram = Program::Create("./shader/texture.vs", "./shader/texture.fs");
+    if (!m_textureProgram)
         return false;
 
     SPDLOG_INFO("program id: {}", m_program->Get());
@@ -236,6 +251,12 @@ bool Context::Init() {
     m_box2Material->specular = Texture::CreateFromImage(
         Image::Load("./image/container2_specular.png").get());
     m_box2Material->shininess = 64.0f;
+
+    m_windowMaterial = Material::Create();
+    m_windowMaterial->diffuse = Texture::CreateFromImage(
+        Image::Load("./image/blending_transparent_window.png").get());
+    m_windowMaterial->specular = darkGrayTexture;
+    m_windowMaterial->shininess = 64.0f;
 
     return true;
 }

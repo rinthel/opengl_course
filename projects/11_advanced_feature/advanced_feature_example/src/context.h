@@ -25,12 +25,15 @@ private:
     bool Init();
     ProgramUPtr m_program;
     ProgramUPtr m_simpleProgram;
+    ProgramUPtr m_textureProgram;
 
     MeshUPtr m_box;
+    MeshUPtr m_plane;
 
     MaterialPtr m_planeMaterial;
     MaterialPtr m_box1Material;
     MaterialPtr m_box2Material;
+    MaterialPtr m_windowMaterial;
 
     int m_width {640};
     int m_height {480};

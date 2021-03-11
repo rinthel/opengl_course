@@ -449,6 +449,250 @@ glStencilMask(0xFF);
 
 ## Blending
 
+- 그리려고 하는 픽셀과 프레임버퍼에 저장된 픽셀 간의 연산
+- 대부분의 경우 반투명한 오브젝트를 그리는 경우에 사용함
+
+<div>
+<img src="/opengl_course/note/images/11_blend_example.png" width="50%">
+</div>
+
+---
+
+## Blending
+
+- 블랜딩 활성화
+
+```cpp
+glEnable(GL_BLEND);
+```
+
+- 블랜딩 함수
+
+```cpp
+glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+```
+
+---
+
+## Blending
+
+- 블랜딩 수식
+
+<div>
+<img src="/opengl_course/note/images/11_blending_equation.png" width="50%">
+</div>
+
+- `glBlendFunc`으로 `F` 값을 설정할 수 있음
+- `glBlendEquation`으로 가운데 연산자 설정 가능
+
+---
+
+## Blending
+
+<div>
+<img src="/opengl_course/note/images/11_blending_example_init.png" width="30%">
+<img src="/opengl_course/note/images/11_blending_example_eq.png" width="30%">
+<img src="/opengl_course/note/images/11_blending_example_result.png" width="20%">
+</div>
+
+---
+
+## Blending
+
+- `glBlendFunc`에서 사용 가능한 인자
+  - `GL_ZERO`, `GL_ONE`
+  - `GL_SRC_COLOR`, `GL_SRC_ALPHA`
+  - `GL_ONE_MINUS_SRC_COLOR`, `GL_ONE_MINUS_SRC_ALPHA`
+  - `GL_DST_COLOR`, `GL_DST_ALPHA`
+  - `GL_ONE_MINUS_DST_COLOR`, `GL_ONE_MINUS_DST_ALPHA`
+  - `GL_CONSTANT_COLOR`, `GL_CONSTANT_ALPHA`
+  - `GL_ONE_MINUS_CONSTANT_COLOR`, `GL_ONE_MINUS_CONSTANT_ALPHA`
+
+---
+
+## Blending
+
+- `glBlendFuncSeparate` 함수를 이용하여 color / alpha 별로 별도의 수식 적용 가능
+
+```cpp
+glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+```
+
+---
+
+## Blending
+
+- `glBlendEquation` 에서 사용 가능한 인자
+  - `GL_FUNC_ADD`: `src + dst`
+  - `GL_FUNC_SUBTRACT`: `src - dst`
+  - `GL_FUNC_REVERSE_SUBTRACT`: `dst - src`
+  - `GL_MIN`: `min(src, dst)`
+  - `GL_MAX`: `max(src, dst)`
+
+---
+
+## Blending
+
+- 예제에 사용될 반투명 텍스처 다운로드
+  - [blending_transparent_window.png](https://learnopengl.com/img/advanced/blending_transparent_window.png)
+
+<div>
+<img src="https://learnopengl.com/img/advanced/blending_transparent_window.png" width="30%">
+</div>
+
+---
+
+## Blending
+
+- `shader/texture.fs` 수정
+
+```glsl
+#version 330 core
+in vec4 vertexColor;
+in vec2 texCoord;
+out vec4 fragColor;
+
+uniform sampler2D tex;
+
+void main() {
+    fragColor = texture(tex, texCoord);
+}
+```
+
+---
+
+## Blending
+
+- `Context`에 `m_textureProgram` 멤버 추가
+
+```cpp[4]
+  bool Init();
+  ProgramUPtr m_program;
+  ProgramUPtr m_simpleProgram;
+  ProgramUPtr m_textureProgram;
+```
+
+---
+
+## Blending
+
+- `Context::Init()`에서 `m_textureProgram` 초기화
+
+```cpp
+  m_textureProgram = Program::Create("./shader/texture.vs", "./shader/texture.fs");
+  if (!m_textureProgram)
+      return false;
+```
+
+---
+
+## Blending
+
+- `Mesh::CreatePlane()` 함수 추가
+
+```cpp[9]
+CLASS_PTR(Mesh);
+class Mesh {
+public:
+  static MeshUPtr Create(
+    const std::vector<Vertex>& vertices,
+    const std::vector<uint32_t>& indices,
+    uint32_t primitiveType);
+  static MeshUPtr CreateBox();
+  static MeshUPtr CreatePlane();
+```
+
+---
+
+## Blending
+
+- `Mesh::CreatePlane()` 함수 구현
+
+```cpp
+MeshUPtr Mesh::CreatePlane() {
+  std::vector<Vertex> vertices = {
+    Vertex { glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(0.0f, 0.0f) },
+    Vertex { glm::vec3( 0.5f, -0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(1.0f, 0.0f) },
+    Vertex { glm::vec3( 0.5f,  0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(1.0f, 1.0f) },
+    Vertex { glm::vec3(-0.5f,  0.5f, 0.0f), glm::vec3( 0.0f,  0.0f, 1.0f), glm::vec2(0.0f, 1.0f) },
+  };
+
+  std::vector<uint32_t> indices = {
+    0,  1,  2,  2,  3,  0,
+  };
+
+  return Create(vertices, indices, GL_TRIANGLES);
+}
+```
+
+---
+
+## Blending
+
+- `Context`에 `m_plane` 멤버 및 `m_windowMaterial` 추가
+
+```cpp [2,7]
+  MeshUPtr m_box;
+  MeshUPtr m_plane;
+
+  MaterialPtr m_planeMaterial;
+  MaterialPtr m_box1Material;
+  MaterialPtr m_box2Material;
+  MaterialPtr m_windowMaterial;
+```
+
+---
+
+## Blending
+
+- `Context::Init()`에서 `m_plane`, `m_windowMaterial` 초기화
+
+```cpp
+m_plane = Mesh::CreatePlane();
+```
+
+```cpp
+m_windowMaterial = Material::Create();
+m_windowMaterial->diffuse = Texture::CreateFromImage(
+  Image::Load("./image/blending_transparent_window.png").get());
+m_windowMaterial->specular = darkGrayTexture;
+m_windowMaterial->shininess = 64.0f;
+```
+
+---
+
+## Blending
+
+- `Context::Render()`에서 `m_plane`, `m_windowMaterial`, `m_textureProgram` 으로 드로잉
+
+```cpp
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 4.0f));
+  transform = projection * view * modelTransform;
+  m_textureProgram->Use();
+  m_textureProgram->SetUniform("transform", transform);
+  m_windowMaterial->SetToProgram(m_textureProgram.get());
+  m_plane->Draw(m_textureProgram.get());
+```
+
+---
+
+## Blending
+
+- 빌드 및 결과
+  - 반투명한 창문 표현 확인
+
+<div>
+<img src="/opengl_course/note/images/11_one_window_blend.png" width="60%">
+</div>
+
+---
+
+## Blending
+
 - fragment discard
 - blending
 - rendering semi-transparent
