@@ -755,28 +755,64 @@ m_meshes.push_back(std::move(glMesh));
 
 ## Material Loading
 
+- `Material` 클래스 내에 `SetToProgram()` 함수 선언
+
+```cpp [10]
+CLASS_PTR(Material);
+class Material {
+public:
+    static MaterialUPtr Create() {
+        return MaterialUPtr(new Material());
+    }
+    TexturePtr diffuse;
+    TexturePtr specular;
+    float shininess { 32.0f };
+
+    void SetToProgram(const Program* program) const;
+
+private:
+    Material() {}
+};
+```
+
+---
+
+## Material Loading
+
+- `src/mesh.cpp` 내에 `Material::SetToProgram()` 함수 구현
+  - `Program`을 인자로 받아서 텍스처를 설정
+
+```cpp
+void Material::SetToProgram(const Program* program) const {
+  int textureCount = 0;
+  if (diffuse) {
+    glActiveTexture(GL_TEXTURE0 + textureCount);
+    program->SetUniform("material.diffuse", textureCount);
+    diffuse->Bind();
+    textureCount++;
+  }
+  if (specular) {
+    glActiveTexture(GL_TEXTURE0 + textureCount);
+    program->SetUniform("material.specular", textureCount);
+    specular->Bind();
+    textureCount++;
+  }
+  glActiveTexture(GL_TEXTURE0);
+  program->SetUniform("material.shininess", shininess);
+}
+```
+
+---
+
+## Material Loading
+
 - `Mesh::Draw()` 구현 변경
-  - `Program`을 인자로 받아서 `Material`이 설정되어 있을 경우 텍스처를 설정
 
 ```cpp
 void Mesh::Draw(const Program* program) const {
   m_vertexLayout->Bind();
   if (m_material) {
-    int textureCount = 0;
-    if (m_material->diffuse) {
-      glActiveTexture(GL_TEXTURE0 + textureCount);
-      program->SetUniform("material.diffuse", textureCount);
-      m_material->diffuse->Bind();
-      textureCount++;
-    }
-    if (m_material->specular) {
-      glActiveTexture(GL_TEXTURE0 + textureCount);
-      program->SetUniform("material.diffuse", textureCount);
-      m_material->diffuse->Bind();
-      textureCount++;
-    }
-    glActiveTexture(GL_TEXTURE0);
-    program->SetUniform("material.shininess", m_material->shininess);
+    m_material->SetToProgram(program);
   }
   glDrawElements(m_primitiveType, m_indexBuffer->GetCount(), GL_UNSIGNED_INT, 0);
 }
