@@ -35,6 +35,9 @@ void Context::Reshape(int width, int height) {
     m_width = width;
     m_height = height;
     glViewport(0, 0, m_width, m_height);
+
+    m_framebuffer = Framebuffer::Create(
+        Texture::Create(width, height, GL_RGBA));
 }
 
 void Context::MouseMove(double x, double y) {
@@ -95,8 +98,13 @@ void Context::Render() {
             m_cameraPitch = 0.0f;
             m_cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
         }
+
+        // ImGui::Image((ImTextureID)m_framebuffer->GetColorAttachment()->Get(),
+        //     ImVec2(160, 90), ImVec2(0, 1), ImVec2(1, 0));
     }
     ImGui::End();
+
+    m_framebuffer->Bind();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -163,33 +171,40 @@ void Context::Render() {
     m_box2Material->SetToProgram(m_program.get());
     m_box->Draw(m_program.get());
 
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
-
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    m_textureProgram->Use();
+    m_windowTexture->Bind();
+    m_textureProgram->SetUniform("tex", 0);
+
     modelTransform =
         glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 4.0f));
     transform = projection * view * modelTransform;
-    m_textureProgram->Use();
     m_textureProgram->SetUniform("transform", transform);
-    m_windowMaterial->SetToProgram(m_textureProgram.get());
     m_plane->Draw(m_textureProgram.get());
 
     modelTransform =
         glm::translate(glm::mat4(1.0f), glm::vec3(0.2f, 0.5f, 5.0f));
     transform = projection * view * modelTransform;
-    m_textureProgram->Use();
     m_textureProgram->SetUniform("transform", transform);
-    m_windowMaterial->SetToProgram(m_textureProgram.get());
     m_plane->Draw(m_textureProgram.get());
 
     modelTransform =
         glm::translate(glm::mat4(1.0f), glm::vec3(0.4f, 0.5f, 6.0f));
     transform = projection * view * modelTransform;
-    m_textureProgram->Use();
     m_textureProgram->SetUniform("transform", transform);
-    m_windowMaterial->SetToProgram(m_textureProgram.get());
+    m_plane->Draw(m_textureProgram.get());
+
+    Framebuffer::BindToDefault();
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    m_textureProgram->Use();
+    m_textureProgram->SetUniform("transform",
+        glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
+    m_framebuffer->GetColorAttachment()->Bind();
+    m_textureProgram->SetUniform("tex", 0);
     m_plane->Draw(m_textureProgram.get());
 
     // // stencil outline
@@ -271,11 +286,8 @@ bool Context::Init() {
         Image::Load("./image/container2_specular.png").get());
     m_box2Material->shininess = 64.0f;
 
-    m_windowMaterial = Material::Create();
-    m_windowMaterial->diffuse = Texture::CreateFromImage(
+    m_windowTexture = Texture::CreateFromImage(
         Image::Load("./image/blending_transparent_window.png").get());
-    m_windowMaterial->specular = darkGrayTexture;
-    m_windowMaterial->shininess = 64.0f;
 
     return true;
 }

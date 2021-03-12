@@ -9,6 +9,7 @@
 #include "texture.h"
 #include "mesh.h"
 #include "model.h"
+#include "framebuffer.h"
 
 CLASS_PTR(Context)
 class Context {
@@ -33,7 +34,7 @@ private:
     MaterialPtr m_planeMaterial;
     MaterialPtr m_box1Material;
     MaterialPtr m_box2Material;
-    MaterialPtr m_windowMaterial;
+    TexturePtr m_windowTexture;
 
     int m_width {640};
     int m_height {480};
@@ -64,6 +65,9 @@ private:
     glm::vec3 m_cameraFront { glm::vec3(0.0f, -1.0f, 0.0f) };
     glm::vec3 m_cameraPos { glm::vec3(0.0f, 2.5f, 8.0f) };
     glm::vec3 m_cameraUp { glm::vec3(0.0f, 1.0f, 0.0f) };
+
+    // framebuffer
+    FramebufferUPtr m_framebuffer;
 };
 
 #endif // __CONTEXT_H__

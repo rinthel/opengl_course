@@ -565,7 +565,7 @@ void main() {
 
 - `Context`에 `m_textureProgram` 멤버 추가
 
-```cpp[4]
+```cpp [4]
   bool Init();
   ProgramUPtr m_program;
   ProgramUPtr m_simpleProgram;
@@ -590,7 +590,7 @@ void main() {
 
 - `Mesh::CreatePlane()` 함수 추가
 
-```cpp[9]
+```cpp [9]
 CLASS_PTR(Mesh);
 class Mesh {
 public:
@@ -629,7 +629,7 @@ MeshUPtr Mesh::CreatePlane() {
 
 ## Blending
 
-- `Context`에 `m_plane` 멤버 및 `m_windowMaterial` 추가
+- `Context`에 `m_plane` 멤버 및 `m_windowTexture` 추가
 
 ```cpp [2,7]
   MeshUPtr m_box;
@@ -638,43 +638,42 @@ MeshUPtr Mesh::CreatePlane() {
   MaterialPtr m_planeMaterial;
   MaterialPtr m_box1Material;
   MaterialPtr m_box2Material;
-  MaterialPtr m_windowMaterial;
+  TexturePtr m_windowTexture;
 ```
 
 ---
 
 ## Blending
 
-- `Context::Init()`에서 `m_plane`, `m_windowMaterial` 초기화
+- `Context::Init()`에서 `m_plane`, `m_windowTexture` 초기화
 
 ```cpp
 m_plane = Mesh::CreatePlane();
 ```
 
 ```cpp
-m_windowMaterial = Material::Create();
-m_windowMaterial->diffuse = Texture::CreateFromImage(
+m_windowTexture = Texture::CreateFromImage(
   Image::Load("./image/blending_transparent_window.png").get());
-m_windowMaterial->specular = darkGrayTexture;
-m_windowMaterial->shininess = 64.0f;
 ```
 
 ---
 
 ## Blending
 
-- `Context::Render()`에서 `m_plane`, `m_windowMaterial`, `m_textureProgram` 으로 드로잉
+- `Context::Render()`에서 `m_plane`, `m_windowTexture`, `m_textureProgram` 으로 드로잉
 
 ```cpp
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  m_textureProgram->Use();
+  m_windowTexture->Bind();
+  m_textureProgram->SetUniform("tex", 0);
+
   modelTransform =
     glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 4.0f));
   transform = projection * view * modelTransform;
-  m_textureProgram->Use();
   m_textureProgram->SetUniform("transform", transform);
-  m_windowMaterial->SetToProgram(m_textureProgram.get());
   m_plane->Draw(m_textureProgram.get());
 ```
 
@@ -699,17 +698,13 @@ m_windowMaterial->shininess = 64.0f;
   modelTransform =
     glm::translate(glm::mat4(1.0f), glm::vec3(0.2f, 0.5f, 5.0f));
   transform = projection * view * modelTransform;
-  m_textureProgram->Use();
   m_textureProgram->SetUniform("transform", transform);
-  m_windowMaterial->SetToProgram(m_textureProgram.get());
   m_plane->Draw(m_textureProgram.get());
 
   modelTransform =
     glm::translate(glm::mat4(1.0f), glm::vec3(0.4f, 0.5f, 6.0f));
   transform = projection * view * modelTransform;
-  m_textureProgram->Use();
   m_textureProgram->SetUniform("transform", transform);
-  m_windowMaterial->SetToProgram(m_textureProgram.get());
   m_plane->Draw(m_textureProgram.get());
 ```
 
@@ -835,6 +830,330 @@ glCullFace(GL_FRONT); // 앞면을 그리지 않기
 <div>
 <img src="/opengl_course/note/images/11_face_cull_front.png" width="60%"/>
 </div>
+
+---
+
+## Framebuffer
+
+- 프레임버퍼
+  - OpenGL 함수를 통해 그려질 색상/깊이/스텐실 버퍼의 집합체
+  - GLFW를 통해 OpenGL context를 생성하면 화면에 그림을 그리기 위한
+    프레임버퍼가 자동 생성됨
+  - 개발자가 직접 프레임버퍼를 생성하고 활용할 수 있음
+    - **렌더링된 장면을 텍스처로 활용하는 경우**
+    - **포스트 프로세싱**
+
+---
+
+## Framebuffer
+
+- 프레임버퍼 사용 과정
+  - 프레임버퍼 객체 생성
+  - 렌더버퍼 (color / depth / stencil) 생성
+  - 렌더버퍼를 프레임버퍼에 연결
+  - 해당 렌더버퍼의 조합이 프레임버퍼로 사용 가능한지 확인
+
+---
+
+## Framebuffer
+
+- `Texture` 클래스 수정
+  - `width`, `height`, `format`을 내부적으로 갖고 있도록 함
+  - 이미지 로딩 외에 비어있는 텍스처 생성 함수를 추가
+
+---
+
+## Framebuffer
+
+```cpp [9,18-20,29-31]
+#ifndef __TEXTURE_H__
+#define __TEXTURE_H__
+
+#include "image.h"
+
+CLASS_PTR(Texture)
+class Texture {
+public:
+  static TextureUPtr Create(int width, int height, uint32_t format);
+  static TextureUPtr CreateFromImage(const Image* image);
+  ~Texture();
+
+  const uint32_t Get() const { return m_texture; }
+  void Bind() const;
+  void SetFilter(uint32_t minFilter, uint32_t magFilter) const;
+  void SetWrap(uint32_t sWrap, uint32_t tWrap) const;
+
+  int GetWidth() const { return m_width; }
+  int GetHeight() const { return m_height; }
+  uint32_t GetFormat() const { return m_format; }
+
+private:
+  Texture() {}
+  void CreateTexture();
+  void SetTextureFromImage(const Image* image);
+  void SetTextureFormat(int width, int height, uint32_t format);
+
+  uint32_t m_texture { 0 };
+  int m_width { 0 };
+  int m_height { 0 };
+  uint32_t m_format { GL_RGBA };
+};
+
+#endif // __TEXTURE_H__
+```
+
+---
+
+## Framebuffer
+
+- `Texture::Create()` 구현
+
+```cpp
+TextureUPtr Texture::Create(int width, int height, uint32_t format) {
+  auto texture = TextureUPtr(new Texture());
+  texture->CreateTexture();
+  texture->SetTextureFormat(width, height, format);
+  texture->SetFilter(GL_LINEAR, GL_LINEAR);
+  return std::move(texture);
+}
+```
+
+---
+
+## Framebuffer
+
+- `Texture::SetTextureFromImage()` 구현 수정
+
+```cpp [10-17]
+void Texture::SetTextureFromImage(const Image* image) {
+  GLenum format = GL_RGBA;
+  switch (image->GetChannelCount()) {
+    default: break;
+    case 1: format = GL_RED; break;
+    case 2: format = GL_RG; break;
+    case 3: format = GL_RGB; break;
+  }
+
+  m_width = image->GetWidth();
+  m_height = image->GetHeight();
+  m_format = format;
+  
+  glTexImage2D(GL_TEXTURE_2D, 0, m_format,
+    m_width, m_height, 0,
+    format, GL_UNSIGNED_BYTE,
+    image->GetData());
+
+  glGenerateMipmap(GL_TEXTURE_2D);
+}
+```
+
+---
+
+## Framebuffer
+
+- `Texture::SetTextureFormat()` 구현
+
+```cpp
+void Texture::SetTextureFormat(int width, int height, uint32_t format) {
+  m_width = width;
+  m_height = height;
+  m_format = format;
+
+  glTexImage2D(GL_TEXTURE_2D, 0, m_format,
+    m_width, m_height, 0,
+    m_format, GL_UNSIGNED_BYTE,
+    nullptr);
+}
+```
+
+---
+
+## Framebuffer
+
+- `src/framebuffer.h` 생성후 `Framebuffer` 클래스 설계
+
+```cpp
+#ifndef __FRAMEBUFFER_H__
+#define __FRAMEBUFFER_H__
+
+#include "texture.h"
+
+CLASS_PTR(Framebuffer);
+class Framebuffer {
+public:
+    static FramebufferUPtr Create(const TexturePtr colorAttachment);
+    static void BindToDefault();
+    ~Framebuffer();
+
+    const uint32_t Get() const { return m_framebuffer; }
+    void Bind() const;
+    const TexturePtr GetColorAttachment() const { return m_colorAttachment; }
+
+private:
+    Framebuffer() {}
+    bool InitWithColorAttachment(const TexturePtr colorAttachment);
+
+    uint32_t m_framebuffer { 0 };
+    uint32_t m_depthStencilBuffer { 0 };
+    TexturePtr m_colorAttachment;
+};
+
+#endif // __FRAMEBUFFER_H__
+```
+
+---
+
+## Framebuffer
+
+- 제일 단순한 형태의 프레임버퍼 설계
+  - 렌더링이 될 색상 버퍼에 텍스처를 설정할 수 있음
+  - 나머지 깊이 / 스텐실 버퍼는 렌더버퍼를 사용
+
+---
+
+## Framebuffer
+
+- `src/framebuffer.cpp` 생성후 구현
+
+```cpp
+#include "framebuffer.h"
+
+FramebufferUPtr Framebuffer::Create(const TexturePtr colorAttachment) {
+  auto framebuffer = FramebufferUPtr(new Framebuffer());
+  if (!framebuffer->InitWithColorAttachment(colorAttachment))
+    return nullptr;
+  return std::move(framebuffer);
+}
+
+Framebuffer::~Framebuffer() {
+  if (m_depthStencilBuffer) {
+    glDeleteRenderbuffers(1, &m_depthStencilBuffer);
+  }
+  if (m_framebuffer) {
+    glDeleteFramebuffers(1, &m_framebuffer);
+  }
+}
+
+void Framebuffer::BindToDefault() {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Framebuffer::Bind() const {
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+}
+
+bool Framebuffer::InitWithColorAttachment(const TexturePtr colorAttachment) {
+  m_colorAttachment = colorAttachment;
+  glGenFramebuffers(1, &m_framebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+
+  glFramebufferTexture2D(GL_FRAMEBUFFER,
+    GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+    colorAttachment->Get(), 0);
+
+  glGenRenderbuffers(1, &m_depthStencilBuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
+  glRenderbufferStorage(
+    GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
+    colorAttachment->GetWidth(), colorAttachment->GetHeight());
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+  glFramebufferRenderbuffer(
+    GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+    GL_RENDERBUFFER, m_depthStencilBuffer);
+
+  auto result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (result != GL_FRAMEBUFFER_COMPLETE) {
+    SPDLOG_ERROR("failed to create framebuffer: {}", result);
+    return false;
+  }
+
+  BindToDefault();
+
+  return true;
+}
+```
+
+---
+
+## Framebuffer
+
+- `Context` 클래스 내에 `m_framebuffer` 멤버 추가
+
+```cpp [5-6]
+  glm::vec3 m_cameraFront { glm::vec3(0.0f, -1.0f, 0.0f) };
+  glm::vec3 m_cameraPos { glm::vec3(0.0f, 2.5f, 8.0f) };
+  glm::vec3 m_cameraUp { glm::vec3(0.0f, 1.0f, 0.0f) };
+
+  // framebuffer
+  FramebufferUPtr m_framebuffer;
+```
+
+---
+
+## Framebuffer
+
+- `Context::Reshape()`에서 화면 크기와 동일한 프레임버퍼 생성
+
+```cpp [6-7]
+void Context::Reshape(int width, int height) {
+  m_width = width;
+  m_height = height;
+  glViewport(0, 0, m_width, m_height);
+
+  m_framebuffer = Framebuffer::Create(
+    Texture::Create(width, height, GL_RGBA));
+}
+```
+
+---
+
+## Framebuffer
+
+- `Context::Render()`에서 장면을 그리기 전 생성한 프레임버퍼를 바인딩
+
+```cpp [3]
+  // ... imgui codes
+
+  m_framebuffer->Bind();
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+  m_cameraFront =
+    glm::rotate(glm::mat4(1.0f),
+      glm::radians(m_cameraYaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
+  // ...
+```
+
+---
+
+## Framebuffer
+
+- 장면 그리기가 끝났을 때 기본 프레임버퍼 (화면) 으로 바인딩을 변경함
+- 앞에서 렌더링한 장면이 저장된 텍스처를 가지고 화면을 꽉 채우는 사각형을 그림
+
+```cpp
+  // ...
+  Framebuffer::BindToDefault();
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+  m_textureProgram->Use();
+  m_textureProgram->SetUniform("transform",
+      glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
+  m_framebuffer->GetColorAttachment()->Bind();
+  m_textureProgram->SetUniform("tex", 0);
+  m_plane->Draw(m_textureProgram.get());    
+```
+
+---
+
+## Framebuffer
+
+- 빌드 및 결과
+  - 육안으로 달라진점은 없음
+  - 대신 화면에 직접 그리는 형태가 아닌, 텍스처에 렌더링 후 이 텍스처를
+    가지고 다시 그림을 그리는 2단계의 구조를 완성하였음
 
 ---
 
