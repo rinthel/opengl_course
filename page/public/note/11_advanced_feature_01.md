@@ -1157,12 +1157,166 @@ void Context::Reshape(int width, int height) {
 
 ---
 
-## Framebuffer
+## Post-processing
 
-- creating framebuffer
-- texture attachment
-- render to texture
-- post-processing
+- 렌더링된 텍스처에 추가 효과를 넣어보자
+
+---
+
+## Post-processing
+
+- `shader/invert.fs` 추가
+
+```glsl
+#version 330 core
+in vec4 vertexColor;
+in vec2 texCoord;
+out vec4 fragColor;
+
+uniform sampler2D tex;
+
+void main() {
+    vec4 pixel = texture(tex, texCoord);
+    fragColor = vec4(1.0 - pixel.rgb, 1.0);
+}
+```
+
+---
+
+## Post-processing
+
+- `Context`에 `m_postProgram` 멤버 추가
+
+```cpp [4]
+  ProgramUPtr m_program;
+  ProgramUPtr m_simpleProgram;
+  ProgramUPtr m_textureProgram;
+  ProgramUPtr m_postProgram;
+```
+
+---
+
+## Post-processing
+
+- `Context::Init()`에서 `m_postProgram` 초기화
+
+```cpp
+  m_postProgram = Program::Create("./shader/texture.vs",
+    "./shader/invert.fs");
+  if (!m_postProgram)
+    return false;
+```
+
+---
+
+## Post-processing
+
+- `Context::Render()`에서 프레임버퍼 텍스처로 그리는 프로그램을 `m_postProgram`으로 변경
+
+```cpp
+  Framebuffer::BindToDefault();
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+  m_postProgram->Use();
+  m_postProgram->SetUniform("transform",
+    glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
+  m_framebuffer->GetColorAttachment()->Bind();
+  m_postProgram->SetUniform("tex", 0);
+  m_plane->Draw(m_postProgram.get());
+```
+
+---
+
+## Post-processing
+
+- 빌드 및 결과: 반전된 렌더링
+
+<div>
+<img src="/opengl_course/note/images/11_post_process_invert.png" width="60%"/>
+</div>
+
+---
+
+## Post-processing
+
+- `shader/gamma.fs` 추가
+
+```cpp
+#version 330 core
+in vec4 vertexColor;
+in vec2 texCoord;
+out vec4 fragColor;
+
+uniform sampler2D tex;
+uniform float gamma;
+
+void main() {
+  vec4 pixel = texture(tex, texCoord);
+  fragColor = vec4(pow(pixel.rgb, vec3(gamma)), 1.0);
+}
+```
+
+---
+
+## Post-processing
+
+- `Context`에 `m_gamma` 멤버 추가
+
+```cpp [5]
+  ProgramUPtr m_program;
+  ProgramUPtr m_simpleProgram;
+  ProgramUPtr m_textureProgram;
+  ProgramUPtr m_postProgram;
+  float m_gamma {1.0f};
+```
+
+---
+
+## Post-processing
+
+- `Context::Init()`에서 `m_postProgram`이 사용할
+  fragment shader를 `gamma.fs`로 교체
+
+```cpp [2]
+  m_postProgram = Program::Create("./shader/texture.vs",
+    "./shader/gamma.fs");
+  if (!m_postProgram)
+      return false;
+```
+
+---
+
+## Post-processing
+
+- `Context::Render()`에서
+  - `m_gamma`를 조정할 수 있는 UI를 추가
+  - `m_gamma`를 uniform으로 세팅
+
+```cpp [4]
+  if (ImGui::ColorEdit4("clear color", glm::value_ptr(m_clearColor))) {
+    glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
+  }
+  ImGui::DragFloat("gamma", &m_gamma, 0.01f, 0.0f, 2.0f);
+```
+
+```cpp [3]
+  m_postProgram->SetUniform("transform",
+    glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
+  m_postProgram->SetUniform("gamma", m_gamma);
+  m_framebuffer->GetColorAttachment()->Bind();
+```
+
+---
+
+## Post-processing
+
+- 빌드 및 결과
+  - gamma correction
+
+<div>
+<img src="/opengl_course/note/images/11_post_process_gamma.png" width="60%"/>
+</div>
 
 ---
 
