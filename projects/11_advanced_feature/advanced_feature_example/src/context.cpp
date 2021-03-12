@@ -163,10 +163,29 @@ void Context::Render() {
     m_box2Material->SetToProgram(m_program.get());
     m_box->Draw(m_program.get());
 
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_FRONT);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     modelTransform =
         glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 4.0f));
+    transform = projection * view * modelTransform;
+    m_textureProgram->Use();
+    m_textureProgram->SetUniform("transform", transform);
+    m_windowMaterial->SetToProgram(m_textureProgram.get());
+    m_plane->Draw(m_textureProgram.get());
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.2f, 0.5f, 5.0f));
+    transform = projection * view * modelTransform;
+    m_textureProgram->Use();
+    m_textureProgram->SetUniform("transform", transform);
+    m_windowMaterial->SetToProgram(m_textureProgram.get());
+    m_plane->Draw(m_textureProgram.get());
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.4f, 0.5f, 6.0f));
     transform = projection * view * modelTransform;
     m_textureProgram->Use();
     m_textureProgram->SetUniform("transform", transform);

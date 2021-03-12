@@ -985,7 +985,7 @@ m_material.diffuse->Bind();
   - 나무 부분이 금속 부분과 동일하게 반짝인다
 
 <div>
-<img src="/opengl_course/note/images/09_diffuse_map.png" style="width: 60%">
+<img src="/opengl_course/note/images/09_diffuse_map.png" style="width: 60%"/>
 </div>
 
 ---
@@ -1069,7 +1069,7 @@ m_material.specular->Bind();
   - 금속 재질에는 하이라이트 발생
 
 <div>
-<img src="/opengl_course/note/images/09_specular_map.png" style="width: 60%">
+<img src="/opengl_course/note/images/09_specular_map.png" style="width: 60%"/>
 </div>
 
 ---
@@ -1091,7 +1091,7 @@ m_material.specular->Bind();
   - 태양광
 
 <div>
-<img src="/opengl_course/note/images/09_directional_light.png" style="width: 40%">
+<img src="/opengl_course/note/images/09_directional_light.png" style="width: 40%"/>
 </div>
 
 ---
@@ -1156,7 +1156,7 @@ m_program->SetUniform("light.specular", m_light.specular);
   - 모든 위치의 상자에 대해 동일한 방향의 빛이 적용
 
 <div>
-<img src="/opengl_course/note/images/09_directional_light_apply.png" style="width: 60%">
+<img src="/opengl_course/note/images/09_directional_light_apply.png" style="width: 60%"/>
 </div>
 
 ---
@@ -1170,7 +1170,7 @@ m_program->SetUniform("light.specular", m_light.specular);
   - 전구
 
 <div>
-<img src="/opengl_course/note/images/09_point_light.png" style="width: 40%">
+<img src="/opengl_course/note/images/09_point_light.png" style="width: 40%"/>
 </div>
 
 ---
@@ -1193,8 +1193,8 @@ m_program->SetUniform("light.specular", m_light.specular);
   - 광원이 어느정도 거리까지 영향을 주게할 것인지에 따라 파라미터를 조절
 
 <div>
-<img src="/opengl_course/note/images/09_attenuation_equation.png" style="width: 30%">
-<img src="/opengl_course/note/images/09_attenuation_graph.png" style="width: 40%">
+<img src="/opengl_course/note/images/09_attenuation_equation.png" style="width: 30%"/>
+<img src="/opengl_course/note/images/09_attenuation_graph.png" style="width: 40%"/>
 </div>
 
 ---
@@ -1204,7 +1204,7 @@ m_program->SetUniform("light.specular", m_light.specular);
 - Ogre3D 엔진에서 사용하는 점 광원 최대 거리에 따른 파라미터
 
 <div>
-<img src="/opengl_course/note/images/09_attenuation_parameter_table.png" style="width: 50%">
+<img src="/opengl_course/note/images/09_attenuation_parameter_table.png" style="width: 50%"/>
 </div>
 
 ---
@@ -1307,7 +1307,7 @@ m_program->SetUniform("light.specular", m_light.specular);
   - 점광원으로부터 거리가 멀수록 상자가 어두워 지는 것을 확인
 
 <div>
-<img src="/opengl_course/note/images/09_point_light_apply.png" style="width: 60%">
+<img src="/opengl_course/note/images/09_point_light_apply.png" style="width: 60%"/>
 </div>
 
 ---
@@ -1320,7 +1320,7 @@ m_program->SetUniform("light.specular", m_light.specular);
   - 광원 방향으로부터 일정 각도만큼만 광선을 발사
 
 <div>
-<img src="/opengl_course/note/images/09_spot_light_model.png" style="width: 30%">
+<img src="/opengl_course/note/images/09_spot_light_model.png" style="width: 30%"/>
 </div>
 
 ---
@@ -1418,7 +1418,7 @@ m_program->SetUniform("light.specular", m_light.specular);
   - 매우 또렷한 경계선
 
 <div>
-<img src="/opengl_course/note/images/09_spot_light_apply.png" style="width: 60%">
+<img src="/opengl_course/note/images/09_spot_light_apply.png" style="width: 60%"/>
 </div>
 
 ---
@@ -1501,7 +1501,7 @@ m_program->SetUniform("light.cutoff", glm::vec2(
   - 부드러운 경계선
 
 <div>
-<img src="/opengl_course/note/images/09_spot_light_apply_smooth_edge.png" style="width: 80%">
+<img src="/opengl_course/note/images/09_spot_light_apply_smooth_edge.png" style="width: 80%"/>
 </div>
 
 ---

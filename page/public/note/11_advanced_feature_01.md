@@ -148,7 +148,7 @@ m_box->Draw(m_program.get());
 - 빌드 및 실행
 
 <div>
-<img src="/opengl_course/note/images/11_scene_example.png" width="75%">
+<img src="/opengl_course/note/images/11_scene_example.png" width="75%"/>
 </div>
 
 ---
@@ -221,7 +221,7 @@ glDepthFunc(GL_LESS);
 ## Depth testing
 
 <div>
-<img src="/opengl_course/note/images/11_depth_test_off.png" width="80%">
+<img src="/opengl_course/note/images/11_depth_test_off.png" width="80%"/>
 </div>
 
 ---
@@ -252,7 +252,7 @@ auto projection = glm::perspective(glm::radians(45.0f),
 - 빌드 및 결과
 
 <div>
-<img src="/opengl_course/note/images/11_depth_visualization.png" width="70%">
+<img src="/opengl_course/note/images/11_depth_visualization.png" width="70%"/>
 </div>
 
 ---
@@ -272,7 +272,7 @@ auto projection = glm::perspective(glm::radians(45.0f),
   - 정규화된 z값은 1/z 꼴의 함수 형태로 분포가 나타남
 
 <div>
-<img src="/opengl_course/note/images/11_depth_value_graph.png" width="40%">
+<img src="/opengl_course/note/images/11_depth_value_graph.png" width="40%"/>
 </div>
 
 ---
@@ -311,7 +311,7 @@ modelTransform =
   - 원거리에서 박스와 지면의 z값 차이가 얼마 나지 않아서 잘못된 렌더링 발생
 
 <div>
-<img src="/opengl_course/note/images/11_z_fighting.png" width="60%">
+<img src="/opengl_course/note/images/11_z_fighting.png" width="60%"/>
 </div>
 
 ---
@@ -330,7 +330,7 @@ modelTransform =
 - color / depth 외에 특정 픽셀에만 그림을 그리도록 하는 용도의 8-bit 정수형 버퍼
 
 <div>
-<img src="/opengl_course/note/images/11_stencil_test_example.png" width="60%">
+<img src="/opengl_course/note/images/11_stencil_test_example.png" width="60%"/>
 </div>
 
 ---
@@ -442,7 +442,7 @@ glStencilMask(0xFF);
 - 빌드 및 결과
 
 <div>
-<img src="/opengl_course/note/images/11_stencil_outline.png" width="75%">
+<img src="/opengl_course/note/images/11_stencil_outline.png" width="75%"/>
 </div>
 
 ---
@@ -453,7 +453,7 @@ glStencilMask(0xFF);
 - 대부분의 경우 반투명한 오브젝트를 그리는 경우에 사용함
 
 <div>
-<img src="/opengl_course/note/images/11_blend_example.png" width="50%">
+<img src="/opengl_course/note/images/11_blend_example.png" width="50%"/>
 </div>
 
 ---
@@ -479,7 +479,7 @@ glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 - 블랜딩 수식
 
 <div>
-<img src="/opengl_course/note/images/11_blending_equation.png" width="50%">
+<img src="/opengl_course/note/images/11_blending_equation.png" width="50%"/>
 </div>
 
 - `glBlendFunc`으로 `F` 값을 설정할 수 있음
@@ -490,9 +490,9 @@ glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 ## Blending
 
 <div>
-<img src="/opengl_course/note/images/11_blending_example_init.png" width="30%">
-<img src="/opengl_course/note/images/11_blending_example_eq.png" width="30%">
-<img src="/opengl_course/note/images/11_blending_example_result.png" width="20%">
+<img src="/opengl_course/note/images/11_blending_example_init.png" width="30%"/>
+<img src="/opengl_course/note/images/11_blending_example_eq.png" width="30%"/>
+<img src="/opengl_course/note/images/11_blending_example_result.png" width="20%"/>
 </div>
 
 ---
@@ -537,7 +537,7 @@ glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
   - [blending_transparent_window.png](https://learnopengl.com/img/advanced/blending_transparent_window.png)
 
 <div>
-<img src="https://learnopengl.com/img/advanced/blending_transparent_window.png" width="30%">
+<img src="https://learnopengl.com/img/advanced/blending_transparent_window.png" width="30%"/>
 </div>
 
 ---
@@ -686,24 +686,155 @@ m_windowMaterial->shininess = 64.0f;
   - 반투명한 창문 표현 확인
 
 <div>
-<img src="/opengl_course/note/images/11_one_window_blend.png" width="60%">
+<img src="/opengl_course/note/images/11_one_window_blend.png" width="60%"/>
 </div>
 
 ---
 
 ## Blending
 
+- 창문을 여러 개로 늘려보자
+
+```cpp
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.2f, 0.5f, 5.0f));
+  transform = projection * view * modelTransform;
+  m_textureProgram->Use();
+  m_textureProgram->SetUniform("transform", transform);
+  m_windowMaterial->SetToProgram(m_textureProgram.get());
+  m_plane->Draw(m_textureProgram.get());
+
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.4f, 0.5f, 6.0f));
+  transform = projection * view * modelTransform;
+  m_textureProgram->Use();
+  m_textureProgram->SetUniform("transform", transform);
+  m_windowMaterial->SetToProgram(m_textureProgram.get());
+  m_plane->Draw(m_textureProgram.get());
+```
+
+---
+
+## Blending
+
+- 빌드 및 결과
+  - 정면에서 보면 정확한 결과물
+
+<div>
+<img src="/opengl_course/note/images/11_multiple_blend_good.png" width="60%"/>
+</div>
+
+---
+
+## Blending
+
+- 빌드 및 결과
+  - 뒤에서 보면 잘못된 결과가 발생
+
+<div>
+<img src="/opengl_course/note/images/11_multiple_blend_bad.png" width="60%"/>
+</div>
+
+---
+
+## Blending
+
+- 잘못된 결과가 발생하는 원인
+  - 카메라 앞의 유리창을 먼저 그리는 경우 이 유리창이 depth buffer 값을 갱신
+  - 뒤의 유리창은 **depth test를 통과하지 못하고 그려지지 않음**
+
+---
+
+## Blending
+
 - fragment discard
-- blending
-- rendering semi-transparent
-- order independent alpha
+  - fragment shader에서 discard를 호출하면 해당 픽셀을 그리지 않을 수 있음
+
+---
+
+## Blending
+
+- `shader/texture.fs`를 다음과 같이 수정
+
+```glsl
+#version 330 core
+in vec4 vertexColor;
+in vec2 texCoord;
+out vec4 fragColor;
+
+uniform sampler2D tex;
+
+void main() {
+    vec4 pixel = texture(tex, texCoord);
+    if (pixel.a < 0.01)
+        discard;
+    fragColor = pixel;
+}
+```
+
+---
+
+## Blending
+
+- 빌드 및 결과
+  - 투명하게 나와야 되는 창틀 구석은 해결
+  - 반투명한 유리 부분은 여전히 문제점
+
+<div>
+<img src="/opengl_course/note/images/11_multiple_blend_discard.png" width="60%"/>
+</div>
+
+---
+
+## Blending
+
+- 해결책
+  - 그리기 전 보는 방향을 기준으로 반투명한 물체를 sort하기
+  - [order-independency transparency](https://learnopengl.com/Guest-Articles/2020/OIT/Introduction)
 
 ---
 
 ## Face culling
 
-- winding order: CW or CCW
-- face culling
+- 삼각형을 이루는 점의 순서에 따라 앞면/뒷면을 결정
+  - 일반적으로 반시계방향(CCW)을 앞면으로 취급
+
+<div>
+<img src="/opengl_course/note/images/11_winding_order.png" width="50%"/>
+</div>
+
+---
+
+## Face culling
+
+- Face culling
+  - 앞면/뒷면을 그리지 않도록 추려내는 작업
+    - 뒷면은 그리지 않는다
+
+<div>
+<img src="/opengl_course/note/images/11_face_culling.png" width="50%"/>
+</div>
+
+---
+
+## Face culling
+
+```cpp
+glEnable(GL_CULL_FACE); // face culling 활성화
+glDisable(GL_CULL_FACE); // face culling 비활성화
+glFrontFace(GL_CCW); // CCW 방향의 면을 앞면으로 설정
+glCullFace(GL_BACK); // 뒷면을 그리지 않기
+glCullFace(GL_FRONT); // 앞면을 그리지 않기
+```
+---
+
+## Face culling
+
+- `glCullFace(GL_FRONT)`로 앞면을 그리지 않았을 경우
+
+<div>
+<img src="/opengl_course/note/images/11_face_cull_front.png" width="60%"/>
+</div>
 
 ---
 
