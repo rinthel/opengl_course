@@ -1320,13 +1320,5 @@ void main() {
 
 ---
 
-## Cubemap
-
-- creation
-- skybox
-- environment map
-
----
-
 ## Congratulation!
 ### 수고하셨습니다!
