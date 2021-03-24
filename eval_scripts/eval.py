@@ -137,6 +137,8 @@ for index, repo in enumerate(repolist):
     finally:
         os.chdir(rootdir)
 
+    print("{} evaluating {} / {}: {}".format(
+        prompt, repo["id"], repo["name"], github_url))
     print("please set score (0-10):")
     repo["score"] = int(sys.stdin.readline())
     print("please leave comment:")
