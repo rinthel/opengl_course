@@ -597,6 +597,7 @@ private:
     uint8_t* m_data { nullptr };
 };
 ```
+
 ---
 
 ## More on Filtering
