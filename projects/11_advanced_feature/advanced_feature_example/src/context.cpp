@@ -117,11 +117,20 @@ void Context::Render() {
         glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
 
     auto projection = glm::perspective(glm::radians(45.0f),
-        (float)m_width / (float)m_height, 0.01f, 20.0f);
+        (float)m_width / (float)m_height, 0.01f, 100.0f);
     auto view = glm::lookAt(
         m_cameraPos,
         m_cameraPos + m_cameraFront,
         m_cameraUp);
+
+    auto skyboxModelTransform =
+        glm::translate(glm::mat4(1.0), m_cameraPos) *
+        glm::scale(glm::mat4(1.0), glm::vec3(50.0f));
+    m_skyboxProgram->Use();
+    m_skyboxTexture->Bind();
+    m_skyboxProgram->SetUniform("skybox", 0);
+    m_skyboxProgram->SetUniform("transform", projection * view * skyboxModelTransform);
+    m_box->Draw(m_skyboxProgram.get());
 
     auto lightModelTransform =
         glm::translate(glm::mat4(1.0), m_light.position) *
@@ -294,6 +303,24 @@ bool Context::Init() {
 
     m_windowTexture = Texture::CreateFromImage(
         Image::Load("./image/blending_transparent_window.png").get());
+
+    {
+        auto cubeRight = Image::Load("./image/skybox/right.jpg", false);
+        auto cubeLeft = Image::Load("./image/skybox/left.jpg", false);
+        auto cubeTop = Image::Load("./image/skybox/top.jpg", false);
+        auto cubeBottom = Image::Load("./image/skybox/bottom.jpg", false);
+        auto cubeFront = Image::Load("./image/skybox/front.jpg", false);
+        auto cubeBack = Image::Load("./image/skybox/back.jpg", false);
+        m_skyboxTexture = CubeTexture::CreateFromImages({
+            cubeRight.get(),
+            cubeLeft.get(),
+            cubeTop.get(),
+            cubeBottom.get(),
+            cubeFront.get(),
+            cubeBack.get(),
+        });
+        m_skyboxProgram = Program::Create("./shader/skybox.vs", "./shader/skybox.fs");
+    }
 
     return true;
 }

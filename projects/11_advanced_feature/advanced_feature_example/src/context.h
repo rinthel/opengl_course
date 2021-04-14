@@ -47,6 +47,10 @@ private:
     // clear color
     glm::vec4 m_clearColor { glm::vec4(0.1f, 0.2f, 0.3f, 0.0f) };
 
+    // skybox
+    CubeTextureUPtr m_skyboxTexture;
+    ProgramUPtr m_skyboxProgram;
+
     // light parameter
     struct Light {
         glm::vec3 position { glm::vec3(1.0f, 4.0f, 4.0f) };
