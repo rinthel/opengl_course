@@ -202,8 +202,8 @@ void main() {
   멤버 추가
 
 ```cpp
-  // skybox
-  CubeTextureUPtr m_skyboxTexture;
+  // cubemap
+  CubeTextureUPtr m_cubeTexture;
   ProgramUPtr m_skyboxProgram;
 ```
 
@@ -220,7 +220,7 @@ void main() {
   auto cubeBottom = Image::Load("./image/skybox/bottom.jpg", false);
   auto cubeFront = Image::Load("./image/skybox/front.jpg", false);
   auto cubeBack = Image::Load("./image/skybox/back.jpg", false);
-  m_skyboxTexture = CubeTexture::CreateFromImages({
+  m_cubeTexture = CubeTexture::CreateFromImages({
     cubeRight.get(),
     cubeLeft.get(),
     cubeTop.get(),
@@ -249,7 +249,7 @@ void main() {
       glm::translate(glm::mat4(1.0), m_cameraPos) *
       glm::scale(glm::mat4(1.0), glm::vec3(50.0f));
   m_skyboxProgram->Use();
-  m_skyboxTexture->Bind();
+  m_cubeTexture->Bind();
   m_skyboxProgram->SetUniform("skybox", 0);
   m_skyboxProgram->SetUniform("transform", projection * view * skyboxModelTransform);
   m_box->Draw(m_skyboxProgram.get());
@@ -267,10 +267,159 @@ void main() {
 
 ---
 
-## Cube
-- creation
-- skybox
-- environment map
+## Environment Mapping
+
+- 주변을 감싸고 있는 환경을 렌더링하고자 하는 오브젝트에 적용하는 방식
+  - 주변 환경이 물체에 반사되거나
+  - 주변 환경이 물체에 굴절되서 보이는 경우
+
+---
+
+## Environment Mapping
+
+- 반사
+  - 시선 벡터와 물체의 법선 벡터를 이용하여 반사 벡터를 계산
+  - 벡터 방향으로부터 큐브맵 텍스처의 픽셀값을 가져옴
+
+<div>
+<img src="/opengl_course/note/images/12_cubemap_environment_map_reflection_explain.png" width="35%" />
+</div>
+
+---
+
+## Environment Mapping
+
+- `shader/env_map.vs` 추가
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+
+out vec3 normal;
+out vec3 position;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    normal = mat3(transpose(inverse(model))) * aNormal;
+    position = vec3(model * vec4(aPos, 1.0));
+    gl_Position = projection * view * vec4(position, 1.0);
+}
+```
+
+---
+
+## Environment Mapping
+
+- `shader/env_map.fs` 추가
+
+```glsl
+#version 330 core
+
+out vec4 fragColor;
+
+in vec3 normal;
+in vec3 position;
+
+uniform vec3 cameraPos;
+uniform samplerCube skybox;
+
+void main() {
+    vec3 I = normalize(position - cameraPos);
+    vec3 R = reflect(I, normalize(normal));
+    fragColor = vec4(texture(skybox, R).rgb, 1.0);
+}
+```
+
+---
+
+## Environment Mapping
+
+- `Context` 클래스에 프로그램을 위한 멤버 추가
+
+```cpp [4]
+    // cubemap
+    CubeTextureUPtr m_cubeTexture;
+    ProgramUPtr m_skyboxProgram;
+    ProgramUPtr m_envMapProgram;
+```
+
+---
+
+## Environment Mapping
+
+- `Context::Init()` 에서 프로그램 로드
+
+```cpp [3-4]
+  m_skyboxProgram = Program::Create(
+    "./shader/skybox.vs", "./shader/skybox.fs");
+  m_envMapProgram = Program::Create(
+    "./shader/env_map.vs", "./shader/env_map.fs");
+```
+
+---
+
+## Environment Mapping
+
+- `Context::Render()` 에서 `m_envMapProgram`을
+  이용하여 박스 그리기
+
+```cpp
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.75f, -2.0f)) *
+    glm::rotate(glm::mat4(1.0f), glm::radians(40.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+    glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
+  m_envMapProgram->Use();
+  m_envMapProgram->SetUniform("model", modelTransform);
+  m_envMapProgram->SetUniform("view", view);
+  m_envMapProgram->SetUniform("projection", projection);
+  m_envMapProgram->SetUniform("cameraPos", m_cameraPos);
+  m_cubeTexture->Bind();
+  m_envMapProgram->SetUniform("skybox", 0);
+  m_box->Draw(m_envMapProgram.get());
+```
+
+---
+
+## Environment Mapping
+
+- 빌드 및 실행 결과
+
+<div>
+<img src="/opengl_course/note/images/12_cubemap_environment_map_reflection_result.png" width="75%" />
+</div>
+
+---
+
+## Environment Mapping
+
+- 보통 단독으로 사용하지는 않고 일반 쉐이더 (phong, PBS 등)에 섞어서 사용
+- cube map에서만 색상을 가져오므로 근처의 오브젝트가 비치지 않아서 비현실성이
+  있음
+
+---
+
+## Environment Mapping
+
+- Reflection(반사) 외에도 Refraction(굴절)로도 구현 가능
+  - 굴절률 수치를 바탕으로 굴절각 계산
+  - glsl에서 제공하는 `refract()` 함수를 사용하여 굴절된 벡터 계산
+
+<div>
+<img src="/opengl_course/note/images/12_cubemap_environment_map_refraction_explain.png" width="35%" />
+</div>
+
+---
+
+## Environment Mapping
+
+- Dynamic environment map
+  - 고정된 이미지를 로딩하는 형태가 아닌, 매 프레임마다 변하는 환경 맵
+  - Framebuffer를 이용하여 매 프레임 cube map의 각 면을 렌더링
+  - 결국 6번의 렌더링이 사전에 이루어져야 하므로 성능에 영향을 미침
 
 ---
 
