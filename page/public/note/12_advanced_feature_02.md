@@ -425,17 +425,350 @@ void main() {
 
 ## Advanced Data
 
-- `glBufferSubData`
-- `glMapBuffer`, `glUnmapBuffer`
-- `glCopyBufferSubData`
+- VBO, IBO의 데이터를 관리하는 방법
+  - 지금까지 사용했던 VBO에 데이터 관리: `glBufferData()`
+  - `glBufferData()`에 메모리 포인터 인자에 `nullptr`을
+    넘겨주면, 메모리 할당만 하고 복사는 일어나지 않음
+
+---
+
+## Advanced Data
+
+- OpenGL에서 제공하는 버퍼 데이터 업데이트 방법
+  - 일부 복사: `glBufferSubData()`
+  - 직접 억세스: `glMapBuffer()` / `glUnmapBuffer()`
+  - 버퍼에서 버퍼로 복사하기: `glCopyBufferSubData()`
+
+---
+
+## Advanced Data
+
+- `glBufferSubData(target, offset, size, ptr)`
+  - `target`에 바인딩된 버퍼에 `offset`부터 `size`
+    만큼의 공간에 `ptr`부터 `size` 만큼의 데이터를 복사
+
+```cpp
+// Range: [24, 24 + sizeof(data)]
+glBufferSubData(GL_ARRAY_BUFFER, 24, sizeof(data), &data);
+```
+
+---
+
+## Advanced Data
+
+- `glMapBuffer(target, usage)`
+  - `target`에 바인딩된 버퍼에 `usage` 목적으로 접근 가능한
+    데이터 포인터를 가져옴
+- `glUnmapBuffer(target)`
+  - 포인터를 통한 버퍼 접근 종료
+
+---
+
+## Advanced Data
+
+```cpp
+float data[] = {
+  0.5f, 1.0f, -0.35f
+  [...]
+};
+glBindBuffer(GL_ARRAY_BUFFER, buffer);
+// get pointer
+void *ptr = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+// now copy data into memory
+memcpy(ptr, data, sizeof(data));
+// make sure to tell OpenGL we’re done with the pointer
+glUnmapBuffer(GL_ARRAY_BUFFER);
+```
+
+---
+
+## Advanced Data
+
+- `glCopyBufferSubData(rtarget, wtarget, roffset, woffset, size)`
+  - `rtarget`에 바인딩된 버퍼의 `roffset`부터 `size` 만큼의 데이터를
+    `wtarget`에 바인딩된 버퍼의 `wtarget`부터 `size` 만큼의 공간에
+    복사
+
+```cpp
+glBindBuffer(GL_COPY_READ_BUFFER, vbo1);
+glBindBuffer(GL_COPY_WRITE_BUFFER, vbo2);
+glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER,
+  0, 0, 8 * sizeof(float));
+```
 
 ---
 
 ## Advanced GLSL
 
-- built-in variables
-- interface blocks
-- uniform block / uniform buffer object
+- Built-in variable
+  - shader 내에서 사용할 수 있는 미리 선언된 변수
+  - vertex shader의 gl_Position은 built-in output variable
+  - 그 외의 built-in variable을 알아보자
+
+---
+
+## GLSL Built-in variable
+
+- `gl_PointSize`
+  - `GL_POINTS`를 이용하여 점을 그리고자 할 경우
+    vertex shader에서 설정할 수 있는 점의 크기값
+  - `glEnable(GL_PROGRAM_POINT_SIZE);` 으로 활성화 한 뒤
+    사용 가능
+
+```glsl
+void main() {
+  gl_Position = projection * view * model * vec4(aPos, 1.0);
+  gl_PointSize = gl_Position.z;
+}
+```
+
+---
+
+## GLSL Built-in variable
+
+- `gl_VertexID`
+  - 현재 vertex shader에서 처리 중인 정점의 인덱스
+- `gl_FragCoord`
+  - fragment shader에서 사용할 수 있는 현재 픽셀의 화면상 위치값
+
+---
+
+## GLSL Built-in variable
+
+```glsl
+void main() {
+  if(gl_FragCoord.x < 400)
+    FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+  else
+    FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+}
+```
+
+<div>
+<img src="/opengl_course/note/images/12_glsl_fragcoord.png" width="40%" />
+</div>
+
+---
+
+## GLSL Built-in variable
+
+- `gl_FrontFacing`
+  - fragment shader에서 사용할 수 있음
+  - 현재 픽셀이 앞면인지 혹은 뒷면인지를 알 수 있는 bool 값
+  - 앞면 / 뒷면에 따라 다른 재질을 입히거나 할 때 유용
+
+---
+
+## GLSL Built-in variable
+
+```glsl
+#version 330 core
+out vec4 FragColor;
+
+in vec2 TexCoords;
+
+uniform sampler2D frontTexture;
+uniform sampler2D backTexture;
+
+void main() {
+  if(gl_FrontFacing)
+    FragColor = texture(frontTexture, TexCoords);
+  else
+    FragColor = texture(backTexture, TexCoords);
+}
+```
+
+---
+
+## GLSL Built-in variable
+
+<div>
+<img src="/opengl_course/note/images/12_glsl_frontfacing.png" width="50%" />
+</div>
+
+---
+
+## GLSL Built-in variable
+
+- `gl_FragDepth`
+  - fragment shader에서 픽셀의 깊이값을 직접 설정할 수 있게 해주는 변수
+  - `gl_FragCoord`는 read-only
+    - 기본: `gl_FragDepth = gl_FragCoord.z;`
+  - 이 값을 사용하기 시작하면 early depth test가 비활성화 된다는 단점이 있음
+
+---
+
+## Advanced GLSL
+
+- Interface block
+  - vertex shader와 fragment shader 간의 link가 제대로 되려면
+    둘 사이의 in/out 변수 연결이 제대로 이루어져야함
+  - 이를 관리 하기 위한 `struct` 비슷한 변수 그룹
+  - 구조체와 마찬가지로 `.` 연산자를 이용하여 변수 접근
+
+```glsl
+out VS_OUT {
+  vec2 TexCoords;
+} vs_out;
+```
+
+---
+
+## Interface Block
+
+```glsl [8-10, 14]
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec2 aTexCoords;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+out VS_OUT {
+  vec2 TexCoords;
+} vs_out;
+
+void main() {
+  gl_Position = projection * view * model * vec4(aPos, 1.0);
+  vs_out.TexCoords = aTexCoords;
+}
+```
+
+---
+
+## Interface Block
+
+- 블록 이름 `VS_OUT`은 동일해야 되지만 변수명은 달라도 상관 없음
+
+```glsl [5-7, 11]
+#version 330 core
+
+out vec4 FragColor;
+
+in VS_OUT {
+  vec2 TexCoords;
+} fs_in;
+uniform sampler2D texture;
+
+void main() {
+  FragColor = texture(texture, fs_in.TexCoords);
+}
+```
+
+---
+
+## Advanced GLSL
+
+- Uniform buffer object (UBO)
+  - 여러 shader program들이 같은 uniform variable을 사용하는 경우가 많음
+    - `model`, `view`, `projection` 등의 transform 등
+  - 다른 program을 사용할때마다 uniform 변수를 새로 설정해주는 번거로움이 있음
+  - UBO를 사용하면 모든 shader들이 같이 사용할 수 있는 global uniform
+    설정 가능
+
+---
+
+## Uniform Buffer Object
+
+- UBO 생성 방법
+  - VBO, IBO와 마찬가지로 `glGenBuffers()` 함수로 생성
+  - `GL_UNIFORM_BUFFER`를 타겟으로 바인딩
+  - `glBufferData()`, `glBufferSubData()` 등으로 데이터 복사
+
+---
+
+## Uniform Buffer Object
+
+```glsl
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+
+layout (std140) uniform Matrices {
+  mat4 projection;
+  mat4 view;
+};
+
+uniform mat4 model;
+
+void main() {
+  gl_Position = projection * view * model * vec4(aPos, 1.0);
+}
+```
+
+---
+
+## Uniform Buffer Object
+
+- `layout (std140)`
+  - 메모리 레이아웃 설정
+  - 기본 레이아웃의 경우 최적화가 이루어짐
+    - GPU 메모리의 접근 효율성을 위해 4/16바이트 단위로 정렬됨
+  - `std140` 메모리 레이아웃의 경우 메모리 공간은 다소 많이
+    사용하지만 예측가능한 레이아웃 제공
+
+---
+
+## Uniform Buffer Object
+
+| **타입**     |  **레이아웃 규칙**  |
+|----------|----------------|
+| 스칼라값  |    4 byte      |
+| vecN     |    16 byte     |
+| 스칼라값 / vecN 의 배열 | 16 * (배열 개수) byte |
+| matN     | 16 * N byte |
+| 구조체    | 16 byte 크기로 정렬 |
+
+---
+
+## Uniform Buffer Object
+
+```glsl
+layout (std140) uniform ExampleBlock {
+                   // base alignment // aligned offset
+  float value;     // 4              // 0
+  vec3 vector;     // 16             // 16 (multiple of 16: 4->16)
+  mat4 matrix;     // 16             // 32 (column 0)
+                   // 16             // 48 (column 1)
+                   // 16             // 64 (column 2)
+                   // 16             // 80 (column 3)
+  float values[3]; // 16             // 96 (values[0])
+                   // 16             // 112 (values[1])
+                   // 16             // 128 (values[2])
+  bool boolean;    // 4              // 144
+  int integer;     // 4              // 148
+};
+```
+
+---
+
+## Uniform Buffer Object
+
+- UBO 사용하기
+  - 데이터 입력
+
+```glsl
+unsigned int uboExampleBlock;
+glGenBuffers(1, &uboExampleBlock);
+glBindBuffer(GL_UNIFORM_BUFFER, uboExampleBlock);
+glBufferData(GL_UNIFORM_BUFFER, 152, NULL, GL_STATIC_DRAW); // 152 bytes
+glBindBuffer(GL_UNIFORM_BUFFER, 0);
+```
+
+---
+
+## Uniform Buffer Object
+
+- UBO 사용하기
+  - `programId`가 가진 `Lights` 유니폼 블럭이
+    2번 UBO를 가져다 쓰도록 바인딩
+  - `uboExampleBlock`을 2번 UBO로 바인딩
+
+```cpp
+auto lightIndex = glGetUniformBlockIndex(programId, "Lights");
+glUniformBlockBinding(programId, lightIndex, 2);
+glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboExampleBlock);
+```
 
 ---
 
