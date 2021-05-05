@@ -3,6 +3,8 @@ import sys
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 import csv
+import zipfile
+from pathlib import Path
 
 class GithubParser(HTMLParser):
     def __init__(self):
@@ -39,119 +41,134 @@ def get_repo_url(filepath):
         return parser.result
 
 dirname = sys.argv[1]
-tag_name = ""
-print(sys.argv)
-if len(sys.argv) > 2:
-    tag_name = sys.argv[2]
 
 print("dirname:", dirname)
 output_dirname = dirname + "_result"
 output_filename = output_dirname + ".csv"
 
-def save_result(output_filename, repolist):
+def save_result(output_filename, scorelist):
     with open(output_filename, "wt", encoding="utf8", newline='') as f:
         writer = csv.writer(f)
-        for repo in repolist:
+        for repo in scorelist:
             writer.writerow(repo.values())
 
 def load_result(output_filename):
-    repolist = []
+    scorelist = []
     with open(output_filename, "rt", encoding="utf8") as f:
         reader = csv.reader(f)
-        keys = ["index", "id", "name", "github_id", "github_repo", "score", "comment"]
+        keys = ["index", "id", "name", "root", "score", "comment"]
         for row in reader:
             repo = dict(zip(keys, row))
             print(repo)
             repo["index"] = int(repo["index"])
             repo["score"] = int(repo["score"])
-            repolist.append(repo)
-    return repolist
+            scorelist.append(repo)
+    return scorelist
 
 
 if os.path.isfile(output_filename):
     # load existing file
-    repolist = load_result(output_filename)
+    scorelist = load_result(output_filename)
     print("loaded repo list")
-    print(repolist)
+    print(scorelist)
 else:
     # create file
     filelist = os.listdir(dirname)
-    repolist = []
+    scorelist = []
 
     with open('id_name.csv', "rt", encoding="utf8") as f:
         reader = csv.reader(f)
         for row in reader:
-            repolist.append({
+            scorelist.append({
                 "index": row[0],
                 "id": row[1],
                 "name": row[2],
-                "github_id": "",
-                "github_repo": "",
+                "root": "",
                 "score": -1,
                 "comment": "",
                 })
 
     for filename in filelist:
+        if ".zip" not in filename:
+            continue
         try:
             idnumber, name = get_idnumber_and_name(filename)
-            found_repo = list(filter(lambda repo: repo["name"] == name, repolist))
-            assert len(found_repo) == 1
-            repo = found_repo[0]
-            url = get_repo_url(os.path.join(dirname, filename))
-            [_, username, reponame, *_] = url.path.split("/")
-            if ".git" in reponame:
-                reponame = reponame.split(".")[0]
-            repo["github_id"] = username
-            repo["github_repo"] = reponame
+            found_row = list(filter(lambda row: row["name"] == name, scorelist))
+            assert len(found_row) == 1
+            row = found_row[0]
+            
+            # unzip file
+            f = zipfile.ZipFile(os.path.join(dirname, filename))
+            target_dir = os.path.join(output_dirname, row["id"])
+            f.extractall(target_dir)
+
+            # find CMakeLists.txt root directory
+            extract_files = list(Path(target_dir).rglob("*.[tT][xX][tT]"))
+            for extract_file in extract_files:
+                rootpath, filename = os.path.split(extract_file)
+                if filename == 'CMakeLists.txt':
+                    repo["root"] = rootpath
+            
         except Exception as e:
             print("cannot process:", filename)
             raise e
 
-    save_result(output_filename, repolist)
+    save_result(output_filename, scorelist)
 
 rootdir = os.getcwd()
-for index, repo in enumerate(repolist):
-    prompt = "[{:2d}/{:2d}]".format(index + 1, len(repolist))
+for index, repo in enumerate(scorelist):
+    prompt = "[{:2d}/{:2d}]".format(index + 1, len(scorelist))
     if repo["score"] != -1:
         print("{} skipping {} / {}: {}".format(
             prompt, repo["id"], repo["name"], repo["score"]))
         continue
 
-    if len(repo["github_id"]) == 0 or len(repo["github_repo"]) == 0:
+    if len(repo["root"]) == 0:
+        target_dir = os.path.join(output_dirname, repo["id"])
+        extract_files = list(Path(target_dir).rglob("*.[tT][xX][tT]"))
+        for extract_file in extract_files:
+            rootpath, filename = os.path.split(extract_file)
+            if filename == 'CMakeLists.txt':
+                repo["root"] = rootpath
+
+    if len(repo["root"]) == 0:
         print("{} not repoted {} / {}. set score to zero...".format(
             prompt, repo["id"], repo["name"]))
         repo["score"] = 0
         repo["comment"] = "미제출"
         os.chdir(rootdir)
-        save_result(output_filename, repolist)
+        save_result(output_filename, scorelist)
         continue
 
-    github_url = "https://github.com/{}/{}".format(repo["github_id"], repo["github_repo"])
     print("=" * 50)
-    print("{} evaluating {} / {}: {}".format(
-        prompt, repo["id"], repo["name"], github_url))
+    print("{} evaluating {} / {}".format(
+        prompt, repo["id"], repo["name"]))
 
-    basedir = os.path.join(output_dirname, repo["id"])
-    os.makedirs(basedir, exist_ok=True)
+    basedir = repo["root"]
     os.chdir(basedir)
     try:
-        os.system("git clone {} {}".format(f"-b {tag_name}" if tag_name else "", github_url))
-        os.chdir(repo["github_repo"])
         os.system("cmake . -Bbuild")
         os.system("cmake --build build --config Debug -- /m:12")
         # find executabe file
         exename = list(filter(lambda x: ".exe" in x, list(os.listdir(os.path.join("build", "Debug")))))[0]
-        os.system(os.path.join(".", "build", "Debug", exename))
+        exepath = os.path.join(".", "build", "Debug", exename)
+        
+        # test code
+        os.system("{} 0.6 0.5 32".format(exepath))
+        os.system("{} 0.8 0.4 32 45 135".format(exepath))
+        os.system("{} 0.8 0.7 32 0 270".format(exepath))
+        os.system("{} 0.5 0.25 64 0 360 0 1 0".format(exepath))
+        os.system("{} 0.6 0.3 64 120 240 1 0.5 0".format(exepath))
     except Exception as e:
         print("error occurred:", e)
     finally:
         os.chdir(rootdir)
 
-    print("{} evaluating {} / {}: {}".format(
-        prompt, repo["id"], repo["name"], github_url))
+    print("{} evaluating {} / {}".format(
+        prompt, repo["id"], repo["name"]))
     print("please set score (0-10):")
     repo["score"] = int(sys.stdin.readline())
     print("please leave comment:")
     repo["comment"] = sys.stdin.readline().strip()
 
-    save_result(output_filename, repolist)
+    save_result(output_filename, scorelist)
