@@ -821,6 +821,7 @@ glFrontFace(GL_CCW); // CCW 방향의 면을 앞면으로 설정
 glCullFace(GL_BACK); // 뒷면을 그리지 않기
 glCullFace(GL_FRONT); // 앞면을 그리지 않기
 ```
+
 ---
 
 ## Face culling
