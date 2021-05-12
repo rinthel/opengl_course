@@ -498,6 +498,22 @@ glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER,
 
 ---
 
+## Advanced Data
+
+- Additional note
+  - `glTexSubImage2D()`
+    - 이미 GPU 메모리가 할당된 2D texture에 새로운 CPU 이미지 데이터를
+      업데이트하고 싶을때 사용하는 함수
+
+```cpp
+glBindBuffer(GL_TEXTURE_2D, texture);
+glTexSubImage2D(GL_TEXTURE_2D, level,
+  xoffset, yoffset, width, height,
+  GL_RGBA, GL_UNSIGNED_BYTE, imageptr);
+```
+
+---
+
 ## Advanced GLSL
 
 - Built-in variable
@@ -774,15 +790,237 @@ glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboExampleBlock);
 
 ## Geometry Shader
 
-- explanation
-- exploding object
-- normal vector visualization
+- Vertex shader와 Fragment shader 사이에 추가할 수 있는 shader
+- 하나의 primitive를 입력받음
+- 이를 다른 primitive로 출력할 수 있는 기능을 제공
+
+---
+
+## Geometry Shader
+
+- point primitive를 line strip primitive로 바꾸는 예제
+
+```glsl
+#version 330 core
+
+layout (points) in;
+layout (line_strip, max_vertices = 2) out;
+
+void main() {
+  gl_Position = gl_in[0].gl_Position + vec4(-0.1, 0.0, 0.0, 0.0);
+  EmitVertex();
+
+  gl_Position = gl_in[0].gl_Position + vec4( 0.1, 0.0, 0.0, 0.0);
+  EmitVertex();
+
+  EndPrimitive();
+}
+```
+
+---
+
+## Geometry Shader
+
+- 입력 받고자 하는 primitive를 `layout () in`에 정의
+- 출력할 primitive를 `layout () out`에 명시
+- `EmitVertex()` 함수로 `gl_Position`에 설정된 정점을 생성함
+- `EndPrimitive()`로 현재까지 생성한 정점들을 묶은 primitive 생성
+
+---
+
+## Geomoetry Shader
+
+- 사용례 1: exploding object
+  - 삼각형을 입력받아서 각 삼각형의 normal 방향으로 위치를 약간 움직이기
+
+<div>
+<img src="/opengl_course/note/images/12_geometry_shader_exploding_object.png" width="40%" />
+</div>
+
+---
+
+## Geomoetry Shader
+
+- 사용례 2: normal vector visualization
+  - 삼각형의 normal 방향을 계산하여 line 형태로 primitive를 생성하여
+    normal vector를 시각화
+
+<div>
+<img src="/opengl_course/note/images/12_geometry_shader_normal_vector.png" width="40%" />
+</div>
 
 ---
 
 ## Instancing
 
-- asteroid field
+- 동일한 오브젝트를 여러번 그려야 하는 경우
+  - 수풀 그리기: 몇개의 vertex로 되어 있는 풀 object를 여러번 그리기
+  - `glDrawArrays()`와 같은 함수를 여러번 호출하면 성능 저하가 발생
+
+```cpp
+for (unsigned int i = 0; i < amount_of_models_to_draw; i++) {
+  DoSomePreparations(); // bind VAO, bind textures, set uniforms etc.
+  glDrawArrays(GL_TRIANGLES, 0, amount_of_vertices);
+}
+```
+
+---
+
+## Instancing
+
+- Instancing
+  - 여러 오브젝트를 한번의 draw call로 그리도록 해주는 기능
+  - CPU -> GPU 간 통신을 줄여서 성능 저하를 방지
+  - `glDrawArraysInstanced()`, `glDrawElementsInstanced()`
+    함수 사용
+  - 파라미터로 인스턴스의 개수를 제공
+
+---
+
+## Instancing
+
+- `gl_InstanceID`
+  - vertex shader 내에서 제공하는 built-in variable
+  - 서로 다른 instance를 구분짓는 용도로 사용
+
+---
+
+## Instancing
+
+- uniform을 사용하여 instanced drawing 하는 방법
+
+```glsl
+#version 330 core
+
+layout (location = 0) in vec2 aPos;
+layout (location = 1) in vec3 aColor;
+
+out vec3 fColor;
+uniform vec2 offsets[100];
+
+void main() {
+  vec2 offset = offsets[gl_InstanceID];
+  gl_Position = vec4(aPos + offset, 0.0, 1.0);
+  fColor = aColor;
+}
+```
+
+```cpp
+glBindVertexArray(quadVAO);
+glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 100);
+```
+
+---
+
+## Instancing
+
+- 결과
+
+<div>
+<img src="/opengl_course/note/images/12_instanced_draw.png" width="60%" />
+</div>
+
+---
+
+## Instancing
+
+- VBO를 이용하여 instanced drawing 하는 방법
+
+```cpp
+unsigned int instanceVBO;
+glGenBuffers(1, &instanceVBO);
+glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100,
+  &translations[0], GL_STATIC_DRAW);
+glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+// vertex attribute 0, 1 setting ...
+glEnableVertexAttribArray(2);
+glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
+glBindBuffer(GL_ARRAY_BUFFER, 0);
+glVertexAttribDivisor(2, 1);
+```
+
+---
+
+## Instancing
+
+- `glVertexAttribDivisor(n, div)`
+  - `n`번째 attribute를 `div`개의 instance가 등장할때마다 업데이트하도록 설정
+  - `glVertexAttribDivisor(2, 1)`
+    - 2번째 attribute (offset) 은 `gl_VertexID`가 아닌
+      `gl_InstanceID`가 1 증가할 때마다 값이 달라짐
+
+---
+
+## Instancing
+
+- VBO를 이용하여 instanced drawing 하는 방법
+  - `aPos[gl_VertexID] + aOffset[gl_InstanceID]`
+
+```glsl
+#version 330 core
+
+layout (location = 0) in vec2 aPos;
+layout (location = 1) in vec3 aColor;
+layout (location = 2) in vec2 aOffset;
+
+out vec3 fColor;
+
+void main() {
+  gl_Position = vec4(aPos + aOffset, 0.0, 1.0);
+  fColor = aColor;
+}
+```
+
+---
+
+## Anti-aliasing
+
+- 앨리어싱 (aliasing) 현상
+  - 렌더링된 오브젝트의 경계 부분에 도트로 된 계단이 눈에 띄는 현상
+
+<div>
+<img src="/opengl_course/note/images/12_aliasing.png" width="40%" />
+</div>
+
+---
+
+## Anti-aliasing
+
+- 앨리어싱 현상의 원인
+  - 삼각형을 픽셀로 전환 (rasterization) 할 때 경계 부분을 채울지
+    말지 두 경우만 있기 때문에 발생
+
+<div>
+<img src="/opengl_course/note/images/12_aliasing_rasterizer_before.png" height="25%" />
+<img src="/opengl_course/note/images/12_aliasing_rasterizer_after.png" height="25%" />
+</div>
+
+---
+
+## Anti-aliasing
+
+- Anti-aliasing
+  - 계단 현상을 없애는 기법을 총칭함
+  - 예전의 기법: Supersampling Anti-Aliasing (SSAA)
+    - 원래 해상도보다 더 큰 해상도로 렌더링
+    - 렌더링된 영상을 작게 다운샘플링
+    - 큰 해상도로 렌더링할때 매우 비용이 커지는 문제 발생
+  - **Multisample Anti-Aliasing (MSAA)**
+    - OpenGL에서 기본으로 제공하는 anti-aliasing 기법
+
+---
+
+## Anti-aliasing
+
+- MSAA 아이디어
+  - 한 픽셀이 삼각형 안에 들어갈지 말지를 픽셀의 중심 위치 하나가
+    아닌, 여러 위치에 대해서 조사하자 (multi-sample)
+  - 삼각형 안에 포함된 샘플의 개수에 따라 알파값을 조절하자
+
+
 
 ---
 
