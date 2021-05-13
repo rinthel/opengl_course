@@ -37,6 +37,9 @@ private:
     MaterialPtr m_box1Material;
     MaterialPtr m_box2Material;
     TexturePtr m_windowTexture;
+    TexturePtr m_grassTexture;
+    ProgramUPtr m_grassProgram;
+    std::vector<glm::vec3> m_grassPos;
 
     int m_width {640};
     int m_height {480};
