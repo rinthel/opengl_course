@@ -48,10 +48,10 @@ function Home() {
         <li><Link to="09_lighting">9. Lighting</Link></li>
         <li><Link to="10_object">10. Object Loading</Link></li>
         <li><Link to="11_advanced_feature_01">11. Advanced Feature Part. 1</Link></li>
+        <li><Link to="12_advanced_feature_02">12. Advanced Feature Part. 2</Link></li>
       </ul>
       <h4>on writing</h4>
       <ul>
-        <li><Link to="12_advanced_feature_02">12. Advanced Feature Part. 2</Link></li>
         <li><Link to="13_advanced_lighting_01">13. Advanced Lighting Part. 1</Link></li>
         <li><Link to="14_advanced_lighting_02">14. Advanced Lighting Part. 2</Link></li>
         <li><Link to="15_physics_based_rendering">15. Physics-Based Rendering</Link></li>
