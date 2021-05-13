@@ -976,6 +976,122 @@ void main() {
 
 ---
 
+## Instancing
+
+- 풀밭 렌더링
+  - `image/grass.png`에 저장
+
+<div>
+<img src="/opengl_course/note/images/12_grass.png" width="40%" />
+</div>
+
+---
+
+## Instancing
+
+- `shader/grass.vs` 추가
+
+```glsl
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+out vec2 texCoord;
+
+uniform mat4 transform;
+
+void main() {
+    gl_Position = transform * vec4(aPos, 1.0);
+    texCoord = aTexCoord;
+}
+```
+
+---
+
+## Instancing
+
+- `shader/grass.fs` 추가
+
+```glsl
+#version 330 core
+
+in vec2 texCoord;
+out vec4 fragColor;
+
+uniform sampler2D tex;
+
+void main() {
+    vec4 pixel = texture(tex, texCoord);
+    if (pixel.a < 0.05)
+        discard;
+    fragColor = pixel;
+}
+```
+
+---
+
+## Instancing
+
+- `Context` 클래스에 멤버 변수 추가
+
+```cpp
+  TexturePtr m_grassTexture;
+  ProgramUPtr m_grassProgram;
+  std::vector<glm::vec3> m_grassPos;
+```
+
+---
+
+## Instancing
+
+- `Context::Init()` 함수에서 텍스처 / 프로그램 / 풀 위치 초기화
+  - x/z 위치 및 y축 회전
+
+```cpp
+m_grassTexture = Texture::CreateFromImage(
+  Image::Load("./image/grass.png").get());
+m_grassProgram = Program::Create("./shader/grass.vs", "./shader/grass.fs");
+m_grassPos.resize(10000);
+for (size_t i = 0; i < m_grassPos.size(); i++) {
+  m_grassPos[i].x = ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 5.0f;
+  m_grassPos[i].z = ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 5.0f;
+  m_grassPos[i].y = glm::radians((float)rand() / (float)RAND_MAX * 360.0f);
+}
+```
+
+---
+
+## Instancing
+
+- `Context::Render()` 함수에서 일반적인 방식으로 그리기
+
+```cpp
+glEnable(GL_BLEND);
+m_grassProgram->SetUniform("tex", 0);
+m_grassTexture->Bind();
+for (size_t i = 0; i < m_grassPos.size(); i++) {
+  modelTransform = 
+      glm::translate(glm::mat4(1.0f), glm::vec3(m_grassPos[i].x, 0.5f, m_grassPos[i].z)) *
+      glm::rotate(glm::mat4(1.0f), m_grassPos[i].y, glm::vec3(0.0f, 1.0f, 0.0f));
+  transform = projection * view * modelTransform;
+  m_grassProgram->SetUniform("transform", transform);
+  m_plane->Draw(m_grassProgram.get());
+}
+```
+
+---
+
+## Instacing
+
+- 빌드 및 결과
+  - 매우 느린 렌더링 속도
+
+<div>
+<img src="/opengl_course/note/images/12_instancing_result.png" width="60%" />
+</div>
+
+---
+
 ## Anti-aliasing
 
 - 앨리어싱 (aliasing) 현상
