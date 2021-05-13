@@ -1020,16 +1020,127 @@ void main() {
     아닌, 여러 위치에 대해서 조사하자 (multi-sample)
   - 삼각형 안에 포함된 샘플의 개수에 따라 알파값을 조절하자
 
-
+<div>
+<img src="/opengl_course/note/images/12_aliasing_msaa_idea.png" height="30%" />
+</div>
 
 ---
 
 ## Anti-aliasing
 
-- what it is?
-- multisampling
-- msaa
-- offscreen msaa
+- MSAA 아이디어
+
+<div>
+<img src="/opengl_course/note/images/12_aliasing_rasterizer_msaa_before.png" height="25%" />
+<img src="/opengl_course/note/images/12_aliasing_rasterizer_msaa_after.png" height="25%" />
+</div>
+
+---
+
+## Anti-aliasing
+
+- MSAA 적용하기
+  - window 생성전 glfw에게 multisample 활성화 요청
+```cpp
+glfwWindowHint(GLFW_SAMPLES, 4);
+```
+  - `glEnable()` 함수로 MSAA 활성화
+```cpp
+glEnable(GL_MULTISAMPLE);
+```
+
+---
+
+## Anti-aliasing
+
+- post processing 관련 코드 주석 처리 후 실행
+
+<div>
+<img src="/opengl_course/note/images/12_aliasing_msaa_before.png" width="45%" />
+<img src="/opengl_course/note/images/12_aliasing_msaa_after.png" width="45%" />
+</div>
+
+---
+
+## Anti-aliasing
+
+- post processing 관련 코드 주석 처리 후 실행
+
+<div>
+<img src="/opengl_course/note/images/12_aliasing_msaa_before_closeup.png" width="45%" />
+<img src="/opengl_course/note/images/12_aliasing_msaa_after_closeup.png" width="45%" />
+</div>
+
+---
+
+## Anti-aliasing
+
+- Off-screen MSAA
+  - 직접 생성한 framebuffer에 MSAA를 활성화하는 방법
+  - texture target을 `GL_TEXTURE_2D_MULTISAMPLE`로 사용하기
+
+```cpp
+// creating texture for render target
+glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, tex);
+glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_RGBA,
+  width, height, GL_TRUE);
+glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+// attaching texture to framebuffer
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+  GL_TEXTURE_2D_MULTISAMPLE, tex, 0);
+```
+
+---
+
+## Anti-aliasing
+
+- Off-screen MSAA
+  - render buffer 설정시에도 multi sample을 위한 함수를 대신 사용
+
+```cpp
+glRenderbufferStorageMultisample(GL_RENDERBUFFER,
+  4, GL_DEPTH24_STENCIL8, width, height);
+```
+
+---
+
+## Anti-aliasing
+
+- Off-screen MSAA
+  - `GL_TEXTURE_2D`에 직접 그림을 그리는 형태가 아니므로 resolve 단계가 필요함
+    - `GL_TEXTURE_2D_MULTISAMPLE` 텍스처의 픽셀을 `GL_TEXTURE_2D` 텍스처로
+      옮기는 작업
+
+---
+
+## Anti-aliasing
+
+- Off-screen MSAA
+
+```cpp
+unsigned int msFBO = CreateFBOWithMultiSampledAttachments();
+// then create another FBO with a normal texture color attachment [...]
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+  GL_TEXTURE_2D, screenTexture, 0);
+// [...]
+while(!glfwWindowShouldClose(window)) {
+  // [...]
+  glBindFramebuffer(msFBO);
+  ClearFrameBuffer();
+  DrawScene();
+  // now resolve multisampled buffer(s) into intermediate FBO
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, msFBO);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
+  glBlitFramebuffer(0, 0, width, height,
+    0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+  // now scene is stored in 2D texture, use that for post-processing
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  ClearFramebuffer();
+  glBindTexture(GL_TEXTURE_2D, screenTexture);
+  DrawPostProcessingQuad();
+  // [...]
+}
+```
 
 ---
 

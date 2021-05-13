@@ -105,7 +105,7 @@ void Context::Render() {
     }
     ImGui::End();
 
-    m_framebuffer->Bind();
+    // m_framebuffer->Bind();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -219,17 +219,17 @@ void Context::Render() {
     m_textureProgram->SetUniform("transform", transform);
     m_plane->Draw(m_textureProgram.get());
 
-    Framebuffer::BindToDefault();
+    // Framebuffer::BindToDefault();
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    m_postProgram->Use();
-    m_postProgram->SetUniform("transform",
-        glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
-    m_postProgram->SetUniform("gamma", m_gamma);
-    m_framebuffer->GetColorAttachment()->Bind();
-    m_postProgram->SetUniform("tex", 0);
-    m_plane->Draw(m_postProgram.get());
+    // m_postProgram->Use();
+    // m_postProgram->SetUniform("transform",
+    //     glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, 2.0f, 1.0f)));
+    // m_postProgram->SetUniform("gamma", m_gamma);
+    // m_framebuffer->GetColorAttachment()->Bind();
+    // m_postProgram->SetUniform("tex", 0);
+    // m_plane->Draw(m_postProgram.get());
 
     // // stencil outline
     // glEnable(GL_STENCIL_TEST);
@@ -263,6 +263,7 @@ void Context::Render() {
 }
 
 bool Context::Init() {
+    glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
     glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
 
