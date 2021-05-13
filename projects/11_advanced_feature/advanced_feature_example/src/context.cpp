@@ -220,16 +220,17 @@ void Context::Render() {
     m_plane->Draw(m_textureProgram.get());
 
     glEnable(GL_BLEND);
+    m_grassProgram->Use();
     m_grassProgram->SetUniform("tex", 0);
     m_grassTexture->Bind();
-    for (size_t i = 0; i < m_grassPos.size(); i++) {
-        modelTransform = 
-            glm::translate(glm::mat4(1.0f), glm::vec3(m_grassPos[i].x, 0.5f, m_grassPos[i].z)) *
-            glm::rotate(glm::mat4(1.0f), m_grassPos[i].y, glm::vec3(0.0f, 1.0f, 0.0f));
-        transform = projection * view * modelTransform;
-        m_grassProgram->SetUniform("transform", transform);
-        m_plane->Draw(m_grassProgram.get());
-    }
+    m_grassInstance->Bind();
+    modelTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
+    transform = projection * view * modelTransform;
+    m_grassProgram->SetUniform("transform", transform);
+    glDrawElementsInstanced(GL_TRIANGLES,
+        m_plane->GetIndexBuffer()->GetCount(),
+        GL_UNSIGNED_INT, 0,
+        m_grassPosBuffer->GetCount());
 
     // Framebuffer::BindToDefault();
 
@@ -358,6 +359,19 @@ bool Context::Init() {
         m_grassPos[i].z = ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 5.0f;
         m_grassPos[i].y = glm::radians((float)rand() / (float)RAND_MAX * 360.0f);
     }
+    m_grassInstance = VertexLayout::Create();
+    m_grassInstance->Bind();
+    m_plane->GetVertexBuffer()->Bind();
+    m_grassInstance->SetAttrib(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+    m_grassInstance->SetAttrib(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, normal));
+    m_grassInstance->SetAttrib(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), offsetof(Vertex, texCoord));
 
+    m_grassPosBuffer = Buffer::CreateWithData(GL_ARRAY_BUFFER, GL_STATIC_DRAW,
+        m_grassPos.data(), sizeof(glm::vec3), m_grassPos.size());
+    m_grassPosBuffer->Bind();
+    m_grassInstance->SetAttrib(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+    glVertexAttribDivisor(3, 1);
+    m_plane->GetIndexBuffer()->Bind();
+    
     return true;
 }

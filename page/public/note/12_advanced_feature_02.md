@@ -1067,6 +1067,7 @@ for (size_t i = 0; i < m_grassPos.size(); i++) {
 
 ```cpp
 glEnable(GL_BLEND);
+m_grassProgram->Use();
 m_grassProgram->SetUniform("tex", 0);
 m_grassTexture->Bind();
 for (size_t i = 0; i < m_grassPos.size(); i++) {
@@ -1085,6 +1086,107 @@ for (size_t i = 0; i < m_grassPos.size(); i++) {
 
 - 빌드 및 결과
   - 매우 느린 렌더링 속도
+
+<div>
+<img src="/opengl_course/note/images/12_instancing_result.png" width="60%" />
+</div>
+
+---
+
+## Instancing
+
+- `shader/grass.vs` 수정
+
+```glsl [5, 11-18]
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+layout (location = 3) in vec3 aOffset;
+out vec2 texCoord;
+
+uniform mat4 transform;
+
+void main() {
+    float c = cos(aOffset.y);
+    float s = sin(aOffset.y);
+    mat4 offsetMat = mat4(
+        c, 0.0, -s, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        s, 0.0, c, 0.0,
+        aOffset.x, 0.0, aOffset.z, 1.0);
+    gl_Position = transform * offsetMat * vec4(aPos, 1.0);
+    texCoord = aTexCoord;
+}
+```
+
+---
+
+## Instancing
+
+- `Context` 클래스에 instancing을 위한 멤버 추가
+
+```cpp
+  BufferUPtr m_grassPosBuffer;
+  VertexLayoutUPtr m_grassInstance;
+```
+
+---
+
+## Instancing
+
+- `Context::Init()`에서 instancing을 위한 VBO, VAO 초기화
+
+```cpp [6-20]
+for (size_t i = 0; i < m_grassPos.size(); i++) {
+  m_grassPos[i].x = ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 5.0f;
+  m_grassPos[i].z = ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 5.0f;
+  m_grassPos[i].y = glm::radians((float)rand() / (float)RAND_MAX * 360.0f);
+}
+m_grassInstance = VertexLayout::Create();
+m_grassInstance->Bind();
+m_plane->GetVertexBuffer()->Bind();
+m_grassInstance->SetAttrib(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+m_grassInstance->SetAttrib(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+  offsetof(Vertex, normal));
+m_grassInstance->SetAttrib(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+  offsetof(Vertex, texCoord));
+
+m_grassPosBuffer = Buffer::CreateWithData(GL_ARRAY_BUFFER, GL_STATIC_DRAW,
+    m_grassPos.data(), sizeof(glm::vec3), m_grassPos.size());
+m_grassPosBuffer->Bind();
+m_grassInstance->SetAttrib(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+glVertexAttribDivisor(3, 1);
+m_plane->GetIndexBuffer()->Bind();
+```
+
+---
+
+## Instancing
+
+- `Context::Render()`에서 instancing을 이용한 draw call
+
+```cpp
+glEnable(GL_BLEND);
+m_grassProgram->Use();
+m_grassProgram->SetUniform("tex", 0);
+m_grassTexture->Bind();
+m_grassInstance->Bind();
+modelTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
+transform = projection * view * modelTransform;
+m_grassProgram->SetUniform("transform", transform);
+glDrawElementsInstanced(GL_TRIANGLES,
+  m_plane->GetIndexBuffer()->GetCount(),
+  GL_UNSIGNED_INT, 0,
+  m_grassPosBuffer->GetCount());
+```
+
+---
+
+## Instancing
+
+- 빌드 및 결과
+  - 동일한 결과, 매우 빠른 속도
 
 <div>
 <img src="/opengl_course/note/images/12_instancing_result.png" width="60%" />
