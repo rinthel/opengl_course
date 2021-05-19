@@ -122,13 +122,39 @@ m_program->SetUniform("blinn", (m_blinn ? 1 : 0));
 
 ---
 
-## Shadpw Map
+## Shadow Map
 
 - 가쟝 많이 사용되는 그림자 렌더링 알고리즘
 - 구현 난이도가 어렵지 않은 편이면서 성능을 크게 잡아먹지 않는 편
 - 고급 알고리즘으로의 확장이 편하다
   - omnidiractional shadow map
   - cascaded shadow map
+
+---
+
+## Shadow Map
+
+- Idea: 빛의 시점에서 렌더링을 해본다
+  - 빛이 볼 수 있는 부분은 그림자가 지지 않는다
+  - 빛이 볼 수 없는 부분은 그림자가 진다
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_idea.png" width="75%"/>
+</div>
+
+---
+
+## Shadow Map
+
+- 알고리즘
+  - light source의 위치에서 물체들을 depth map만 렌더링한다 (shadow map)
+  - shadow map을 바탕으로 지금 그리고 있는 픽셀이 빛을 받는지 아닌지 판별한다
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_algorithm.png" width="60%"/>
+</div>
+
+---
 
 ---
 
