@@ -74,6 +74,7 @@ void Context::MouseButton(int button, int action, double x, double y) {
 void Context::Render() {
     if (ImGui::Begin("ui window")) {
         if (ImGui::CollapsingHeader("light", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("l.directional", &m_light.directional);
             ImGui::DragFloat3("l.position", glm::value_ptr(m_light.position), 0.01f);
             ImGui::DragFloat3("l.direction", glm::value_ptr(m_light.direction), 0.01f);
             ImGui::DragFloat2("l.cutoff", glm::value_ptr(m_light.cutoff), 0.1f, 0.0f, 180.0f);
@@ -111,10 +112,11 @@ void Context::Render() {
     auto lightView = glm::lookAt(m_light.position,
         m_light.position + m_light.direction,
         glm::vec3(0.0f, 1.0f, 0.0f));
-    auto lightProjection = glm::perspective(
-        glm::radians((m_light.cutoff[0] + m_light.cutoff[1]) * 2.0f),
-        1.0f, 1.0f, 20.0f);
-    // auto lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f);
+    auto lightProjection = m_light.directional ?
+        glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f) :
+        glm::perspective(
+            glm::radians((m_light.cutoff[0] + m_light.cutoff[1]) * 2.0f),
+            1.0f, 1.0f, 20.0f);
 
     m_shadowMap->Bind();
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -163,6 +165,7 @@ void Context::Render() {
 
     m_lightingShadowProgram->Use();
     m_lightingShadowProgram->SetUniform("viewPos", m_cameraPos);
+    m_lightingShadowProgram->SetUniform("light.directional", m_light.directional ? 1 : 0);
     m_lightingShadowProgram->SetUniform("light.position", m_light.position);
     m_lightingShadowProgram->SetUniform("light.direction", m_light.direction);
     m_lightingShadowProgram->SetUniform("light.cutoff", glm::vec2(

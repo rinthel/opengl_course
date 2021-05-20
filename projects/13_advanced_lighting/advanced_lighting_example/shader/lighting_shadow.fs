@@ -11,6 +11,7 @@ in VS_OUT {
 
 uniform vec3 viewPos;
 struct Light {
+    int directional;
     vec3 position;
     vec3 direction;
     vec2 cutoff;
@@ -50,16 +51,24 @@ void main() {
     vec3 texColor = texture2D(material.diffuse, fs_in.texCoord).xyz;
     vec3 ambient = texColor * light.ambient;
 
-    float dist = length(light.position - fs_in.fragPos);
-    vec3 distPoly = vec3(1.0, dist, dist*dist);
-    float attenuation = 1.0 / dot(distPoly, light.attenuation);
-    vec3 lightDir = (light.position - fs_in.fragPos) / dist;
-
     vec3 result = ambient;
-    float theta = dot(lightDir, normalize(-light.direction));
-    float intensity = clamp(
-        (theta - light.cutoff[1]) / (light.cutoff[0] - light.cutoff[1]),
-        0.0, 1.0);
+    vec3 lightDir;
+    float intensity = 1.0;
+    float attenuation = 1.0;
+    if (light.directional == 1) {
+        lightDir = normalize(-light.direction);
+    }
+    else {
+        float dist = length(light.position - fs_in.fragPos);
+        vec3 distPoly = vec3(1.0, dist, dist*dist);
+        attenuation = 1.0 / dot(distPoly, light.attenuation);
+        lightDir = (light.position - fs_in.fragPos) / dist;
+
+        float theta = dot(lightDir, normalize(-light.direction));
+        intensity = clamp(
+            (theta - light.cutoff[1]) / (light.cutoff[0] - light.cutoff[1]),
+            0.0, 1.0);
+    }
 
     if (intensity > 0.0) {
         vec3 pixelNorm = normalize(fs_in.normal);

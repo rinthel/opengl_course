@@ -64,6 +64,7 @@ private:
 
     // light parameter
     struct Light {
+        bool directional { false };
         glm::vec3 position { glm::vec3(2.0f, 4.0f, 4.0f) };
         glm::vec3 direction { glm::vec3(-0.5f, -1.5f, -1.0f) };
         glm::vec2 cutoff { glm::vec2(50.0f, 5.0f) };
@@ -89,6 +90,7 @@ private:
 
     // shadow map
     ShadowMapUPtr m_shadowMap;
+    ProgramUPtr m_lightingShadowProgram;
 };
 
 #endif // __CONTEXT_H__
