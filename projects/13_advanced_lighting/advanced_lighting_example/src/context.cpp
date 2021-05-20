@@ -335,8 +335,8 @@ void Context::DrawScene(const glm::mat4& view,
         glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f)) *
         glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
     auto transform = projection * view * modelTransform;
-    m_program->SetUniform("transform", transform);
-    m_program->SetUniform("modelTransform", modelTransform);
+    program->SetUniform("transform", transform);
+    program->SetUniform("modelTransform", modelTransform);
     m_planeMaterial->SetToProgram(program);
     m_box->Draw(program);
 
@@ -345,8 +345,8 @@ void Context::DrawScene(const glm::mat4& view,
         glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
         glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
     transform = projection * view * modelTransform;
-    m_program->SetUniform("transform", transform);
-    m_program->SetUniform("modelTransform", modelTransform);
+    program->SetUniform("transform", transform);
+    program->SetUniform("modelTransform", modelTransform);
     m_box1Material->SetToProgram(program);
     m_box->Draw(program);
 
@@ -355,8 +355,8 @@ void Context::DrawScene(const glm::mat4& view,
         glm::rotate(glm::mat4(1.0f), glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
         glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
     transform = projection * view * modelTransform;
-    m_program->SetUniform("transform", transform);
-    m_program->SetUniform("modelTransform", modelTransform);
+    program->SetUniform("transform", transform);
+    program->SetUniform("modelTransform", modelTransform);
     m_box2Material->SetToProgram(program);
     m_box->Draw(program);
 
@@ -365,8 +365,8 @@ void Context::DrawScene(const glm::mat4& view,
         glm::rotate(glm::mat4(1.0f), glm::radians(50.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
         glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
     transform = projection * view * modelTransform;
-    m_program->SetUniform("transform", transform);
-    m_program->SetUniform("modelTransform", modelTransform);
+    program->SetUniform("transform", transform);
+    program->SetUniform("modelTransform", modelTransform);
     m_box2Material->SetToProgram(program);
     m_box->Draw(program);
 }
