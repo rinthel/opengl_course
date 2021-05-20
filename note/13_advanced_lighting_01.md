@@ -185,8 +185,8 @@ void Context::DrawScene(const glm::mat4& view,
     glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f)) *
     glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
   auto transform = projection * view * modelTransform;
-  m_program->SetUniform("transform", transform);
-  m_program->SetUniform("modelTransform", modelTransform);
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
   m_planeMaterial->SetToProgram(program);
   m_box->Draw(program);
 
@@ -195,8 +195,8 @@ void Context::DrawScene(const glm::mat4& view,
     glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
     glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
   transform = projection * view * modelTransform;
-  m_program->SetUniform("transform", transform);
-  m_program->SetUniform("modelTransform", modelTransform);
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
   m_box1Material->SetToProgram(program);
   m_box->Draw(program);
 
@@ -205,8 +205,8 @@ void Context::DrawScene(const glm::mat4& view,
     glm::rotate(glm::mat4(1.0f), glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
     glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
   transform = projection * view * modelTransform;
-  m_program->SetUniform("transform", transform);
-  m_program->SetUniform("modelTransform", modelTransform);
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
   m_box2Material->SetToProgram(program);
   m_box->Draw(program);
 
@@ -215,8 +215,8 @@ void Context::DrawScene(const glm::mat4& view,
     glm::rotate(glm::mat4(1.0f), glm::radians(50.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
     glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
   transform = projection * view * modelTransform;
-  m_program->SetUniform("transform", transform);
-  m_program->SetUniform("modelTransform", modelTransform);
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
   m_box2Material->SetToProgram(program);
   m_box->Draw(program);
 }
@@ -254,6 +254,301 @@ DrawScene(view, projection, m_program.get());
 
 <div>
 <img src="/opengl_course/note/images/13_shadow_test_scene.png" width="60%"/>
+</div>
+
+---
+
+## Shadow Map
+
+- `Texture` 클래스 코드 리팩토링
+  - pixel type의 파라미터화
+    - 현재 `Texture` 클래스는 모든 픽셀을 `GL_UNSIGNED_BYTE`로 처리
+    - depth map texture를 사용하기 위해서는 `GL_FLOAT` 타입을 사용해야함
+
+---
+
+## Shadow Map
+
+- `Texture` 클래스 코드 리팩토링
+  - pixel type의 파라미터화
+
+```cpp
+// texture.h
+static TextureUPtr Create(int width, int height,
+  uint32_t format, uint32_t type = GL_UNSIGNED_BYTE);
+// ...
+uint32_t GetType() const { return m_type; }
+// ...
+void SetTextureFormat(int width, int height, uint32_t format, uint32_t type);
+// ...
+uint32_t m_type { GL_UNSIGNED_BYTE };
+```
+
+---
+
+## Shadow Map
+
+- `Texture` 클래스 코드 리팩토링
+  - pixel type의 파라미터화
+
+```cpp [2, 5]
+TextureUPtr Texture::Create(int width, int height,
+  uint32_t format, uint32_t type) {
+  auto texture = TextureUPtr(new Texture());
+  texture->CreateTexture();
+  texture->SetTextureFormat(width, height, format, type);
+  texture->SetFilter(GL_LINEAR, GL_LINEAR);
+  return std::move(texture);
+}
+```
+
+---
+
+## Shadow Map
+
+```cpp [13, 17]
+void Texture::SetTextureFromImage(const Image* image) {
+  GLenum format = GL_RGBA;
+  switch (image->GetChannelCount()) {
+      default: break;
+      case 1: format = GL_RED; break;
+      case 2: format = GL_RG; break;
+      case 3: format = GL_RGB; break;
+  }
+
+  m_width = image->GetWidth();
+  m_height = image->GetHeight();
+  m_format = format;
+  m_type = GL_UNSIGNED_BYTE;
+  
+  glTexImage2D(GL_TEXTURE_2D, 0, m_format,
+      m_width, m_height, 0,
+      format, m_type,
+      image->GetData());
+
+  glGenerateMipmap(GL_TEXTURE_2D);
+}
+```
+
+---
+
+## Shadow Map
+
+```cpp [2, 6, 10]
+void Texture::SetTextureFormat(int width, int height,
+  uint32_t format, uint32_t type) {
+  m_width = width;
+  m_height = height;
+  m_format = format;
+  m_type = type;
+
+  glTexImage2D(GL_TEXTURE_2D, 0, m_format,
+    m_width, m_height, 0,
+    m_format, m_type,
+    nullptr);
+}
+```
+
+---
+
+## Shadow Map
+
+- `src/shadow_map.h` 추가
+
+```cpp
+#ifndef __SHADOW_MAP_H__
+#define __SHADOW_MAP_H__
+
+#include "texture.h"
+
+CLASS_PTR(ShadowMap);
+class ShadowMap {
+public:
+  static ShadowMapUPtr Create(int width, int height);
+  ~ShadowMap();
+
+  const uint32_t Get() const { return m_framebuffer; }
+  void Bind() const;
+  const TexturePtr GetShadowMap() const { return m_shadowMap; }
+
+private:
+  ShadowMap() {}
+  bool Init(int width, int height);
+
+  uint32_t m_framebuffer { 0 };
+  TexturePtr m_shadowMap;
+};
+
+#endif // __SHADOW_MAP_H__
+```
+
+---
+
+## Shadow Map
+
+- `ShadowMap` 클래스 디자인
+  - `m_shadowMap`: depth map 저장을 위한 텍스처 멤버
+  - `m_framebuffer`: depth map에 렌더링을 하기 위한 프레임버퍼
+  - shadow map의 크기를 지정하면 해당 크기의 depth 텍스처를 만들어서
+    framebuffer에 바인딩하자
+  - color / stencil은 사용하지 않음
+
+---
+
+## Shadow Map
+
+- `src/shadow_map.cpp` 추가
+
+```cpp
+#include "shadow_map.h"
+
+ShadowMapUPtr ShadowMap::Create(int width, int height) {
+  auto shadowMap = ShadowMapUPtr(new ShadowMap());
+  if (!shadowMap->Init(width, height))
+    return nullptr;
+  return std::move(shadowMap);
+}
+
+ShadowMap::~ShadowMap() {
+  if (m_framebuffer) {
+    glDeleteFramebuffers(1, &m_framebuffer);
+  }
+}
+
+void ShadowMap::Bind() const {
+  glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+}
+
+bool ShadowMap::Init(int width, int height) {
+  glGenFramebuffers(1, &m_framebuffer);
+  Bind();
+
+  m_shadowMap = Texture::Create(width, height, GL_DEPTH_COMPONENT, GL_FLOAT);
+  m_shadowMap->SetFilter(GL_NEAREST, GL_NEAREST);
+  m_shadowMap->SetWrap(GL_REPEAT, GL_REPEAT);
+
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+    GL_TEXTURE_2D, m_shadowMap->Get(), 0);
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+  auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status != GL_FRAMEBUFFER_COMPLETE) {
+    SPDLOG_ERROR("failed to complete shadow map framebuffer: {:x}", status);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return false;
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  return true;
+}
+```
+
+---
+
+## Shadow Map
+
+- `ShadowMap` 클래스 구현
+  - `Init()` 함수는 `Framebuffer`와 크게 다르지 않음
+  - depth texture만 framebuffer에 바인딩
+  - `glDrawBuffer(GL_NONE)`, `glReadBuffer(GL_NONE)`을
+    명시적으로 호출
+    - color attachment가 없음을 OpenGL에게 알려줌
+
+---
+
+## Shadow Map - First Pass
+
+- `Context` 클래스에 `ShadowMap` 멤버 추가
+
+```cpp
+  // shadow map
+  ShadowMapUPtr m_shadowMap;
+```
+
+---
+
+## Shadow Map - First Pass
+
+- `Context::Init()`에서 `ShadowMap` 초기화
+
+```cpp
+  m_shadowMap = ShadowMap::Create(1024, 1024);
+```
+
+---
+
+## Shadow Map - First Pass
+
+- `Context::Render()`에서 `ShadowMap` 프레임버퍼에 렌더링
+  - 가장 단순한 형태의 shader를 사용, depth buffer만 채우기
+  - light의 위치 및 방향을 사용하여 view / projection 행렬 계산
+  - lighting shader를 이용하기 전에 그리도록 함
+
+---
+
+## Shadow Map - First Pass
+
+```cpp
+  auto lightView = glm::lookAt(m_light.position,
+    m_light.position + m_light.direction,
+    glm::vec3(0.0f, 1.0f, 0.0f));
+  auto lightProjection = glm::perspective(
+    glm::radians((m_light.cutoff[0] + m_light.cutoff[1]) * 2.0f),
+    1.0f, 1.0f, 20.0f);
+
+  m_shadowMap->Bind();
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0,
+      m_shadowMap->GetShadowMap()->GetWidth(),
+      m_shadowMap->GetShadowMap()->GetHeight());
+  m_simpleProgram->Use();
+  m_simpleProgram->SetUniform("color", glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+  DrawScene(lightView, lightProjection, m_simpleProgram.get());
+
+  Framebuffer::BindToDefault();
+  glViewport(0, 0, m_width, m_height);
+```
+
+---
+
+## Shadow Map - First Pass
+
+- ImGui를 이용하여 그려진 shadow map을 비주얼라이징
+
+```cpp
+  ImGui::Image((ImTextureID)m_shadowMap->GetShadowMap()->Get(),
+    ImVec2(256, 256), ImVec2(0, 1), ImVec2(1, 0));
+```
+
+---
+
+## Shadow Map - First Pass
+
+- `Context` 클래스의 light 관련 초기 파라미터 변경
+
+```cpp [3, 4, 5, 12]
+  // light parameter
+  struct Light {
+    glm::vec3 position { glm::vec3(2.0f, 4.0f, 4.0f) };
+    glm::vec3 direction { glm::vec3(-0.5f, -1.5f, -1.0f) };
+    glm::vec2 cutoff { glm::vec2(50.0f, 5.0f) };
+    float distance { 150.0f };
+    glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
+    glm::vec3 diffuse { glm::vec3(0.8f, 0.8f, 0.8f) };
+    glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
+  };
+  Light m_light;
+  bool m_blinn { true };
+```
+
+---
+
+## Shadow Map - First Pass
+
+- 빌드 및 실행 결과
+  - light의 시점에서 그려진 depth map을 ImGui 윈도우에서 확인
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_first_pass.png" width="60%"/>
 </div>
 
 ---
