@@ -10,6 +10,7 @@
 #include "mesh.h"
 #include "model.h"
 #include "framebuffer.h"
+#include "shadow_map.h"
 
 CLASS_PTR(Context)
 class Context {
@@ -24,6 +25,7 @@ public:
     void DrawScene(const glm::mat4& view,
         const glm::mat4& projection,
         const Program* program);
+
 private:
     Context() {}
     bool Init();
@@ -62,16 +64,16 @@ private:
 
     // light parameter
     struct Light {
-        glm::vec3 position { glm::vec3(1.0f, 4.0f, 4.0f) };
-        glm::vec3 direction { glm::vec3(-1.0f, -1.0f, -1.0f) };
-        glm::vec2 cutoff { glm::vec2(120.0f, 5.0f) };
-        float distance { 128.0f };
+        glm::vec3 position { glm::vec3(2.0f, 4.0f, 4.0f) };
+        glm::vec3 direction { glm::vec3(-0.5f, -1.5f, -1.0f) };
+        glm::vec2 cutoff { glm::vec2(50.0f, 5.0f) };
+        float distance { 150.0f };
         glm::vec3 ambient { glm::vec3(0.1f, 0.1f, 0.1f) };
         glm::vec3 diffuse { glm::vec3(0.8f, 0.8f, 0.8f) };
         glm::vec3 specular { glm::vec3(1.0f, 1.0f, 1.0f) };
     };
     Light m_light;
-    bool m_blinn { false };
+    bool m_blinn { true };
 
     // camera parameter
     bool m_cameraControl { false };
@@ -84,6 +86,9 @@ private:
 
     // framebuffer
     FramebufferUPtr m_framebuffer;
+
+    // shadow map
+    ShadowMapUPtr m_shadowMap;
 };
 
 #endif // __CONTEXT_H__

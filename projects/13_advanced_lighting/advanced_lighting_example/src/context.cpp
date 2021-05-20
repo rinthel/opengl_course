@@ -101,12 +101,32 @@ void Context::Render() {
             m_cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
         }
 
-        // ImGui::Image((ImTextureID)m_framebuffer->GetColorAttachment()->Get(),
-        //     ImVec2(160, 90), ImVec2(0, 1), ImVec2(1, 0));
+        ImGui::Image((ImTextureID)m_shadowMap->GetShadowMap()->Get(),
+            ImVec2(256, 256), ImVec2(0, 1), ImVec2(1, 0));
     }
     ImGui::End();
 
     // m_framebuffer->Bind();
+
+    auto lightView = glm::lookAt(m_light.position,
+        m_light.position + m_light.direction,
+        glm::vec3(0.0f, 1.0f, 0.0f));
+    auto lightProjection = glm::perspective(
+        glm::radians((m_light.cutoff[0] + m_light.cutoff[1]) * 2.0f),
+        1.0f, 1.0f, 20.0f);
+    // auto lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f);
+
+    m_shadowMap->Bind();
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0,
+        m_shadowMap->GetShadowMap()->GetWidth(),
+        m_shadowMap->GetShadowMap()->GetHeight());
+    m_simpleProgram->Use();
+    m_simpleProgram->SetUniform("color", glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    DrawScene(lightView, lightProjection, m_simpleProgram.get());
+
+    Framebuffer::BindToDefault();
+    glViewport(0, 0, m_width, m_height);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -322,6 +342,8 @@ bool Context::Init() {
     m_grassInstance->SetAttrib(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
     glVertexAttribDivisor(3, 1);
     m_plane->GetIndexBuffer()->Bind();
+
+    m_shadowMap = ShadowMap::Create(1024, 1024);
     
     return true;
 }

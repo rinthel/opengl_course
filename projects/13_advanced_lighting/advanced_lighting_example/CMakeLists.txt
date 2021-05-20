@@ -21,6 +21,7 @@ add_executable(${PROJECT_NAME}
     src/mesh.cpp src/mesh.h
     src/model.cpp src/model.h
     src/framebuffer.cpp src/framebuffer.h
+    src/shadow_map.cpp src/shadow_map.h
     )
 
 include(Dependency.cmake)
