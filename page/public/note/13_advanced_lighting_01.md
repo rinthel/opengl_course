@@ -156,6 +156,106 @@ m_program->SetUniform("blinn", (m_blinn ? 1 : 0));
 
 ---
 
+## Shadow Map Scene
+
+- 장면 준비
+  - `Context::DrawScene()` 함수를 정의하여 장면을 그리는 부분을 분리하자
+
+```cpp
+// context.h
+void DrawScene(const glm::mat4& view,
+  const glm::mat4& projection,
+  const Program* program);
+```
+
+---
+
+## Shadow Map Scene
+
+- `Context::DrawScene()` 구현
+
+```cpp
+// context.cpp
+void Context::DrawScene(const glm::mat4& view,
+  const glm::mat4& projection,
+  const Program* program) {
+
+  program->Use();
+  auto modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f)) *
+    glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
+  auto transform = projection * view * modelTransform;
+  m_program->SetUniform("transform", transform);
+  m_program->SetUniform("modelTransform", modelTransform);
+  m_planeMaterial->SetToProgram(program);
+  m_box->Draw(program);
+
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(-1.0f, 0.75f, -4.0f)) *
+    glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+    glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
+  transform = projection * view * modelTransform;
+  m_program->SetUniform("transform", transform);
+  m_program->SetUniform("modelTransform", modelTransform);
+  m_box1Material->SetToProgram(program);
+  m_box->Draw(program);
+
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.75f, 2.0f)) *
+    glm::rotate(glm::mat4(1.0f), glm::radians(20.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+    glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
+  transform = projection * view * modelTransform;
+  m_program->SetUniform("transform", transform);
+  m_program->SetUniform("modelTransform", modelTransform);
+  m_box2Material->SetToProgram(program);
+  m_box->Draw(program);
+
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 1.75f, -2.0f)) *
+    glm::rotate(glm::mat4(1.0f), glm::radians(50.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+    glm::scale(glm::mat4(1.0f), glm::vec3(1.5f, 1.5f, 1.5f));
+  transform = projection * view * modelTransform;
+  m_program->SetUniform("transform", transform);
+  m_program->SetUniform("modelTransform", modelTransform);
+  m_box2Material->SetToProgram(program);
+  m_box->Draw(program);
+}
+```
+
+---
+
+## Shadow Map Scene
+
+- `Context::Render()` 함수에서 `Context::DrawScene()` 함수를 호출
+  - 그 외의 렌더링 코드는 제거
+
+```cpp [14]
+m_program->Use();
+m_program->SetUniform("viewPos", m_cameraPos);
+m_program->SetUniform("light.position", m_light.position);
+m_program->SetUniform("light.direction", m_light.direction);
+m_program->SetUniform("light.cutoff", glm::vec2(
+    cosf(glm::radians(m_light.cutoff[0])),
+    cosf(glm::radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+m_program->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
+m_program->SetUniform("light.ambient", m_light.ambient);
+m_program->SetUniform("light.diffuse", m_light.diffuse);
+m_program->SetUniform("light.specular", m_light.specular);
+m_program->SetUniform("blinn", (m_blinn ? 1 : 0));
+
+DrawScene(view, projection, m_program.get());
+```
+
+---
+
+## Shadow Map Scene
+
+- 정리된 장면
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_test_scene.png" width="60%"/>
+</div>
+
 ---
 
 ## Shadow Mapping

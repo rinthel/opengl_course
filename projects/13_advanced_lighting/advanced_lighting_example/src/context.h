@@ -21,6 +21,9 @@ public:
     void MouseMove(double x, double y);
     void MouseButton(int button, int action, double x, double y);
 
+    void DrawScene(const glm::mat4& view,
+        const glm::mat4& projection,
+        const Program* program);
 private:
     Context() {}
     bool Init();
