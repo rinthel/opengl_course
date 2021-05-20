@@ -1020,6 +1020,69 @@ m_lightingShadowProgram->SetUniform("light.directional",
 
 ---
 
+## Oversampling
+
+- 지면의 크기를 40 x 40으로 늘리고 far plane을 150으로 둔 결과
+  - 비정상적인 그림자 발생
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_oversampling.png" width="60%"/>
+</div>
+
+---
+
+## Oversampling
+
+- 발생 원인
+  - 현재 texture의 wrapping 방식이 `GL_REPEAT`이기 때문
+- 해결책
+  - `GL_CLAMP_TO_BORDER`로 변경하고 border color를 지정
+
+---
+
+## Oversampling
+
+- `Texture` 클래스에 border color 지정을 위한 함수 추가
+
+```cpp
+// texture.h
+void SetBorderColor(const glm::vec4& color) const;
+```
+
+```cpp
+// texture.cpp
+void Texture::SetBorderColor(const glm::vec4& color) const {
+  glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
+    glm::value_ptr(color));
+}
+```
+
+---
+
+## Oversampling
+
+- `ShadowMap` 초기화 시 texture 파라미터 변경
+
+```cpp [3-4]
+m_shadowMap = Texture::Create(width, height, GL_DEPTH_COMPONENT, GL_FLOAT);
+m_shadowMap->SetFilter(GL_NEAREST, GL_NEAREST);
+m_shadowMap->SetWrap(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
+m_shadowMap->SetBorderColor(glm::vec4(1.0f));
+```
+
+---
+
+## Oversampling
+
+- 결과
+  - 비정상적인 그림자가 제거됨
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_oversampling_solved.png" width="60%"/>
+</div>
+
+---
+
 ## Shadow Mapping
 
 - drawing shadow
