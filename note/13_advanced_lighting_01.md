@@ -918,6 +918,108 @@ float ShadowCalculation(vec4 fragPosLight, vec3 normal, vec3 lightDir) {
 
 ---
 
+## Directional Light
+
+- Directional light인 경우
+  - light projection을 orthogonal로 변경
+
+---
+
+## Directional Light
+
+- `shader/lighting_shadow.fs` 변경
+
+```glsl [2, 7-24]
+struct Light {
+  int directional;
+  vec3 position;
+  // ...
+
+// in main()
+vec3 result = ambient;
+vec3 lightDir;
+float intensity = 1.0;
+float attenuation = 1.0;
+if (light.directional == 1) {
+  lightDir = normalize(-light.direction);
+}
+else {
+  float dist = length(light.position - fs_in.fragPos);
+  vec3 distPoly = vec3(1.0, dist, dist*dist);
+  attenuation = 1.0 / dot(distPoly, light.attenuation);
+  lightDir = (light.position - fs_in.fragPos) / dist;
+
+  float theta = dot(lightDir, normalize(-light.direction));
+  intensity = clamp(
+    (theta - light.cutoff[1]) / (light.cutoff[0] - light.cutoff[1]),
+    0.0, 1.0);
+}
+```
+
+---
+
+## Directional Light
+
+- `Context`의 light parameter에 `directional` 멤버 추가
+
+```cpp [3]
+  // light parameter
+  struct Light {
+    bool directional { false };
+```
+
+---
+
+## Directional Light
+
+- `Context::Render()`에서 ImGui를 이용한 directional 값 조작 추가
+
+```cpp
+ImGui::Checkbox("l.directional", &m_light.directional);
+```
+
+---
+
+## Directional Light
+
+- directional light일 경우 light projection 을 orthogonal로 변경
+
+```cpp [4-8]
+auto lightView = glm::lookAt(m_light.position,
+  m_light.position + m_light.direction,
+  glm::vec3(0.0f, 1.0f, 0.0f));
+auto lightProjection = m_light.directional ?
+  glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 30.0f) :
+  glm::perspective(
+    glm::radians((m_light.cutoff[0] + m_light.cutoff[1]) * 2.0f),
+    1.0f, 1.0f, 20.0f);
+```
+
+---
+
+## Directional Light
+
+- uniform parameter 설정 추가
+
+```cpp [3-4]
+m_lightingShadowProgram->Use();
+m_lightingShadowProgram->SetUniform("viewPos", m_cameraPos);
+m_lightingShadowProgram->SetUniform("light.directional",
+  m_light.directional ? 1 : 0);
+```
+
+---
+
+## Directional Light
+
+- Directional light를 이용한 결과
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_directional_light.png" width="60%"/>
+</div>
+
+---
+
 ## Shadow Mapping
 
 - drawing shadow
