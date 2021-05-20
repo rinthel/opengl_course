@@ -525,7 +525,7 @@ bool ShadowMap::Init(int width, int height) {
 
 - `Context` 클래스의 light 관련 초기 파라미터 변경
 
-```cpp [3, 4, 5, 12]
+```cpp [3-6, 12]
   // light parameter
   struct Light {
     glm::vec3 position { glm::vec3(2.0f, 4.0f, 4.0f) };
@@ -549,6 +549,371 @@ bool ShadowMap::Init(int width, int height) {
 
 <div>
 <img src="/opengl_course/note/images/13_shadow_map_first_pass.png" width="60%"/>
+</div>
+
+---
+
+## Shadow Map - Second Pass
+
+- `shader/lighting_shadow.vs` 추가
+
+```glsl
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+
+out VS_OUT {
+  vec3 fragPos;
+  vec3 normal;
+  vec2 texCoord;
+  vec4 fragPosLight;
+} vs_out;
+
+uniform mat4 transform;
+uniform mat4 modelTransform;
+uniform mat4 lightTransform;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  vs_out.fragPos = vec3(modelTransform * vec4(aPos, 1.0));
+  vs_out.normal = transpose(inverse(mat3(modelTransform))) * aNormal;
+  vs_out.texCoord = aTexCoord;
+  vs_out.fragPosLight = lightTransform * vec4(vs_out.fragPos, 1.0);
+}
+```
+
+---
+
+## Shadow Map - Second Pass
+
+- vertex shader 구현 이슈
+  - 대부분은 `lighting.vs`와 동일함
+  - 픽셀의 3D 공간 상의 위치를 light를 기준으로 계산한 `fragPosLight`가 추가
+
+---
+
+## Shadow Map - Second Pass
+
+- `shader/lighting_shadow.fs` 추가
+
+```cpp
+#version 330 core
+
+out vec4 fragColor;
+
+in VS_OUT {
+    vec3 fragPos;
+    vec3 normal;
+    vec2 texCoord;
+    vec4 fragPosLight;
+} fs_in;
+
+uniform vec3 viewPos;
+struct Light {
+    vec3 position;
+    vec3 direction;
+    vec2 cutoff;
+    vec3 attenuation;
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+uniform Light light;
+
+struct Material {
+    sampler2D diffuse;
+    sampler2D specular;
+    float shininess;
+};
+uniform Material material;
+uniform int blinn;
+uniform sampler2D shadowMap;
+
+float ShadowCalculation(vec4 fragPosLight) {
+  return 0.0;
+}
+
+void main() {
+  vec3 texColor = texture2D(material.diffuse, fs_in.texCoord).xyz;
+  vec3 ambient = texColor * light.ambient;
+
+  float dist = length(light.position - fs_in.fragPos);
+  vec3 distPoly = vec3(1.0, dist, dist*dist);
+  float attenuation = 1.0 / dot(distPoly, light.attenuation);
+  vec3 lightDir = (light.position - fs_in.fragPos) / dist;
+
+  vec3 result = ambient;
+  float theta = dot(lightDir, normalize(-light.direction));
+  float intensity = clamp(
+      (theta - light.cutoff[1]) / (light.cutoff[0] - light.cutoff[1]),
+      0.0, 1.0);
+
+  if (intensity > 0.0) {
+    vec3 pixelNorm = normalize(fs_in.normal);
+    float diff = max(dot(pixelNorm, lightDir), 0.0);
+    vec3 diffuse = diff * texColor * light.diffuse;
+
+    vec3 specColor = texture2D(material.specular, fs_in.texCoord).xyz;
+    float spec = 0.0;
+    if (blinn == 0) {
+        vec3 viewDir = normalize(viewPos - fs_in.fragPos);
+        vec3 reflectDir = reflect(-lightDir, pixelNorm);
+        spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    }
+    else {
+        vec3 viewDir = normalize(viewPos - fs_in.fragPos);
+        vec3 halfDir = normalize(lightDir + viewDir);
+        spec = pow(max(dot(halfDir, pixelNorm), 0.0), material.shininess);
+    }
+    vec3 specular = spec * specColor * light.specular;
+    float shadow = ShadowCalculation(fs_in.fragPosLight);
+
+    result += (diffuse + specular) * intensity * (1.0 - shadow);
+  }
+
+  result *= attenuation;
+  fragColor = vec4(result, 1.0);
+}
+```
+
+---
+
+## Shadow Map - Second Pass
+
+- fragment shader 구현 이슈
+  - 대부분의 코드는 `lighting.fs`와 동일
+  - `shadowMap` 멤버 추가
+  - `ShadowCalculation()`을 호출하여 그림자가 있을 경우 (1.0)
+    diffuse / specular 컬러를 적용하지 않도록 함
+  - 현재 `ShadowCalculation()` 부분은 미구현
+
+---
+
+## Shadow Map - Second Pass
+
+- `Context` 클래스에 shadow shader 멤버 추가
+
+```cpp [3]
+  // shadow map
+  ShadowMapUPtr m_shadowMap;
+  ProgramUPtr m_lightingShadowProgram;
+```
+
+---
+
+## Shadow Map - Second Pass
+
+- `Context::Init()` 함수에서 shader 초기화
+
+```cpp
+  m_lightingShadowProgram = Program::Create(
+    "./shader/lighting_shadow.vs", "./shader/lighting_shadow.fs");
+```
+
+---
+
+## Shadow Map - Second Pass
+
+- `Context::Render()` 함수에서 기본 lighting shader 대신
+  lighting shadow shader 사용
+
+```cpp
+  m_lightingShadowProgram->Use();
+  m_lightingShadowProgram->SetUniform("viewPos", m_cameraPos);
+  m_lightingShadowProgram->SetUniform("light.position", m_light.position);
+  m_lightingShadowProgram->SetUniform("light.direction", m_light.direction);
+  m_lightingShadowProgram->SetUniform("light.cutoff", glm::vec2(
+      cosf(glm::radians(m_light.cutoff[0])),
+      cosf(glm::radians(m_light.cutoff[0] + m_light.cutoff[1]))));
+  m_lightingShadowProgram->SetUniform("light.attenuation", GetAttenuationCoeff(m_light.distance));
+  m_lightingShadowProgram->SetUniform("light.ambient", m_light.ambient);
+  m_lightingShadowProgram->SetUniform("light.diffuse", m_light.diffuse);
+  m_lightingShadowProgram->SetUniform("light.specular", m_light.specular);
+  m_lightingShadowProgram->SetUniform("blinn", (m_blinn ? 1 : 0));
+  m_lightingShadowProgram->SetUniform("lightTransform", lightProjection * lightView);
+  glActiveTexture(GL_TEXTURE3);
+  m_shadowMap->GetShadowMap()->Bind();
+  m_lightingShadowProgram->SetUniform("shadowMap", 3);
+  glActiveTexture(GL_TEXTURE0);
+
+  DrawScene(view, projection, m_lightingShadowProgram.get());
+```
+
+---
+
+## Shadow Map - Second Pass
+
+- 빌드 및 실행
+  - 이전의 lighting shader와 결과가 동일한 것을 먼저 확인
+  - `ShadowCalculation()`을 리턴값을 1.0로 변경하면 전부 어둡게 렌더링 되는 것을 확인
+
+---
+
+## Shadow Calculation
+
+- `ShadowCalculation()` 구현
+  - `fragPosLight`를 바탕으로 light에서 본 픽셀의 위치 계산
+  - `shadowMap`에서부터 해당 픽셀의 depth값 가져오기
+  - 저장된 depth값이 fragPosLight의 depth값보다 작은 경우
+    그림자가 생긴 것으로 판단
+
+---
+
+## Shadow Calculation
+
+```glsl
+float ShadowCalculation(vec4 fragPosLight) {
+  // perform perspective divide
+  vec3 projCoords = fragPosLight.xyz / fragPosLight.w;
+  // transform to [0,1] range
+  projCoords = projCoords * 0.5 + 0.5;
+  // get closest depth value from light’s perspective (using
+  // [0,1] range fragPosLight as coords)
+  float closestDepth = texture(shadowMap, projCoords.xy).r;
+  // get depth of current fragment from light’s perspective
+  float currentDepth = projCoords.z;
+  // check whether current frag pos is in shadow
+  float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
+  return shadow;
+}
+```
+
+---
+
+## Shadow Calcuation
+
+- 빌드 및 실행
+  - 첫 그림자 렌더링
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_second_pass.png" width="60%"/>
+</div>
+
+---
+
+## Shadow Map Improvement
+
+- 현재 렌더링된 그림자의 문제
+  - 이상한 줄무늬가 나타난다 => shadow acne
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_acne.png" width="30%"/>
+</div>
+
+---
+
+## Shadow Map Improvement
+
+- Shadow acne 현상의 원인
+  - shadow map의 해상도는 한정적이어서 광원으로부터 먼 픽셀들은
+    동일한 depth값을 샘플링할 확률이 올라감
+  - 정확하지 않은 depth값 때문에 줄무늬 그림자 형성
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_acne_reason.png" width="60%"/>
+</div>
+
+---
+
+## Shadow Map Improvement
+
+- Shadow acne 현상의 해결책
+  - 편향치(bias)를 더한 값을 비교 수치로 사용하자
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_acne_reason.png" width="60%"/>
+</div>
+
+```glsl
+  float bias = 0.005;
+  float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+```
+
+---
+
+## Shadow Map Improvement
+
+- 빌드 및 결과
+  - 상당히 많은 shadow acne가 없어짐
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_bias_fixed.png" width="60%"/>
+</div>
+
+---
+
+## Shadow Map Improvement
+
+- 빌드 및 결과
+  - light direction과 surface normal이 크게 차이 나는 경우 여전히 shadow acne 발생
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_bias_fixed_limitation.png" width="60%"/>
+</div>
+
+---
+
+## Shadow Map Improvement
+
+- Dynamic shadow bias
+  - light direction과 surface normal 간의 각도가 크면 bias도 크게 만들자
+
+```glsl
+float ShadowCalculation(vec4 fragPosLight, vec3 normal, vec3 lightDir) {
+  vec3 projCoords = fragPosLight.xyz / fragPosLight.w;
+  projCoords = projCoords * 0.5 + 0.5;
+  float closestDepth = texture(shadowMap, projCoords.xy).r;
+  float currentDepth = projCoords.z;
+  float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+  float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+  return shadow;
+}
+```
+
+---
+
+## Shadow Map Improvement
+
+- 빌드 및 결과
+  - 거의 대부분의 영역에서 괜찮은 그림자를 렌더링
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_bias_dynamic.png" width="60%"/>
+</div>
+
+---
+
+## Peter Panning
+
+- Peter panning 현상
+  - bias 때문에 그림자가 물체와 떨어져서 그려지는 현상
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_peter_panning.png" width="50%"/>
+</div>
+
+---
+
+## Peter Panning
+
+- Peter panning 현상 방지
+  - shadow bias 값을 잘 조절한다
+  - Shadow map을 그릴떄 face culling을 사용하여 뒷면만 그리도록 함
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_peter_panning_solution.png" width="60%"/>
+</div>
+
+---
+
+## Peter Panning
+
+- bias를 0.001 ~ 0.02 사이로 조절한 결과
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_peter_panning_after_bias.png" width="60%"/>
 </div>
 
 ---
