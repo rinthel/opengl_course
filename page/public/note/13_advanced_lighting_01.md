@@ -1364,7 +1364,7 @@ void main() {
 
 ---
 
-## Normal Mapping
+## Tangent Space
 
 - Tangent space
   - 면의 normal (법선) 방향과 tangent (접선) 방향이 만들어내는 공간
@@ -1377,7 +1377,7 @@ void main() {
 
 ---
 
-## Normal Mapping
+## Tangent Space
 
 - Tangent space
   - TBN matrix
@@ -1389,7 +1389,7 @@ void main() {
 
 ---
 
-## Normal Mapping
+## Tangent Space
 
 - Tangent 벡터 구하는 방법
   - 텍스처 좌표를 이용
@@ -1400,7 +1400,7 @@ void main() {
 
 ---
 
-## Normal Mapping
+## Tangent Space
 
 <div>
 <img src="/opengl_course/note/images/13_normal_map_tangent_eq_01.png" height="8%"/>
@@ -1411,17 +1411,190 @@ void main() {
 
 ---
 
-- idea
-- normal map on plane
-- non-plane and tangent space
+## Tangent Space
+
+- `mesh.h`에서 `Vertex` 구조체에 `tangent` 멤버 추가
+- `Mesh` 클래스에 `ComputeTangents()` 함수 추가
+
+```cpp
+  glm::vec3 tangent;
+```
+
+```cpp
+  static void ComputeTangents(
+    std::vector<Vertex>& vertices,
+    const std::vector<uint32_t>& indices);
+```
+
+---
+
+## Tangent Space
+
+- `Mesh::ComputeTangents()` 구현
+
+```cpp
+void Mesh::ComputeTangents(
+  std::vector<Vertex>& vertices,
+  const std::vector<uint32_t>& indices) {
+
+  auto compute = [](
+    const glm::vec3& pos1, const glm::vec3& pos2, const glm::vec3& pos3,
+    const glm::vec2& uv1, const glm::vec2& uv2, const glm::vec2& uv3)
+    -> glm::vec3 {
+
+    auto edge1 = pos2 - pos1;
+    auto edge2 = pos3 - pos1;
+    auto deltaUV1 = uv2 - uv1;
+    auto deltaUV2 = uv3 - uv1;
+    float det = (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+    if (det != 0.0f) {
+      auto invDet = 1.0f / det;
+      return deltaUV2.y * edge1 - deltaUV1.y * edge2;
+    }
+    else {
+      return glm::vec3(0.0f, 0.0f, 0.0f);
+    }
+  };
+
+  // initialize
+  std::vector<glm::vec3> tangents;
+  tangents.resize(vertices.size());
+  memset(tangents.data(), 0, tangents.size() * sizeof(glm::vec3));
+
+  // accumulate triangle tangents to each vertex
+  for (size_t i = 0; i < indices.size(); i += 3) {
+    auto v1 = indices[i  ];
+    auto v2 = indices[i+1];
+    auto v3 = indices[i+2];
+
+    tangents[v1] += compute(
+      vertices[v1].position, vertices[v2].position, vertices[v3].position,
+      vertices[v1].texCoord, vertices[v2].texCoord, vertices[v3].texCoord);
+
+    tangents[v2] = compute(
+      vertices[v2].position, vertices[v3].position, vertices[v1].position,
+      vertices[v2].texCoord, vertices[v3].texCoord, vertices[v1].texCoord);
+
+    tangents[v3] = compute(
+      vertices[v3].position, vertices[v1].position, vertices[v2].position,
+      vertices[v3].texCoord, vertices[v1].texCoord, vertices[v2].texCoord);
+  }
+
+  // normalize
+  for (size_t i = 0; i < vertices.size(); i++) {
+    vertices[i].tangent = glm::normalize(tangents[i]);
+  }
+}
+```
+
+---
+
+## Tangent Space
+
+- `Mesh::Init()`에서 `primitiveType`이 삼각형일 경우 tangent 계산
+
+```cpp [5-7]
+void Mesh::Init(
+  const std::vector<Vertex>& vertices,
+  const std::vector<uint32_t>& indices,
+  uint32_t primitiveType) {
+  if (primitiveType == GL_TRIANGLES) {
+    ComputeTangents(const_cast<std::vector<Vertex>&>(vertices), indices);
+  }
+```
+
+---
+
+## Tangent Space
+
+- `shader/normal.vs` 코드 수정
+
+```glsl [4, 6, 13-14, 21-23]
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+layout (location = 3) in vec3 aTangent;
+
+uniform mat4 transform;
+uniform mat4 modelTransform;
+
+out vec2 texCoord;
+out vec3 position;
+out vec3 normal;
+out vec3 tangent;
+
+void main() {
+    gl_Position = transform * vec4(aPos, 1.0);
+    texCoord = aTexCoord;
+    position = (modelTransform * vec4(aPos, 1.0)).xyz;
+
+    mat4 invTransModelTransform = transpose(inverse(modelTransform));
+    normal = (invTransModelTransform * vec4(aNormal, 0.0)).xyz;
+    tangent = (invTransModelTransform * vec4(aTangent, 0.0)).xyz;
+}
+```
+
+---
+
+## Tangent Space
+
+- `shader/normal.fs` 코드 수정
+
+```glsl [5-6, 12-18]
+#version 330 core
+
+in vec2 texCoord;
+in vec3 position;
+in vec3 normal;
+in vec3 tangent;
+
+//...
+
+void main() {
+    vec3 texColor = texture(diffuse, texCoord).xyz;
+    vec3 texNorm = normalize(texture(normalMap, texCoord).xyz * 2.0 - 1.0);
+    vec3 N = normalize(normal);
+    vec3 T = normalize(tangent);
+    vec3 B = cross(N, T);
+    mat3 TBN = mat3(T, B, N);
+    vec3 pixelNorm = normalize(TBN * texNorm);
+
+    vec3 ambient = texColor * 0.2;
+```
+
+---
+
+## Tangent Space
+
+- 빌드 및 결과
+  - 임의의 회전에도 제대로 동작하는 normal shader
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_tangent_result.png" width="60%"/>
+</div>
 
 ---
 
 ## Parallax Mapping
 
-- parallax mapping
-- steep parallax mapping
-- parallax occulsion mapping
+- Normal mapping의 단점
+  - 경계면에서는 입체감을 가질 수 없다
+- 해결책: Displacement mapping
+  - vertex를 촘촘하게 생성하여 높낮이를 표현하는 방식
+  - vertex를 많이 만들면 비용이 높다
+
+---
+
+## Parallax Mapping
+
+- Height map과 Displacement mapping 결과
+
+<div>
+<img src="/opengl_course/note/images/13_displacement_map_height_map.png" width="30%"/>
+<img src="/opengl_course/note/images/13_displacement_map_result.png" width="38%"/>
+</div>
 
 ---
 
