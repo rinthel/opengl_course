@@ -1580,8 +1580,9 @@ void main() {
 ## Parallax Mapping
 
 - Normal mapping의 단점
+  - 큰 깊이감은 만들어 낼 수 없다
   - 경계면에서는 입체감을 가질 수 없다
-- 해결책: Displacement mapping
+- 해결책 1: Displacement mapping
   - vertex를 촘촘하게 생성하여 높낮이를 표현하는 방식
   - vertex를 많이 만들면 비용이 높다
 
@@ -1594,6 +1595,39 @@ void main() {
 <div>
 <img src="/opengl_course/note/images/13_displacement_map_height_map.png" width="30%"/>
 <img src="/opengl_course/note/images/13_displacement_map_result.png" width="38%"/>
+</div>
+
+---
+
+## Parallax Mapping
+
+- Parallax mapping
+  - view vector, height map이 주어졌을 때, normal mapping은 A 위치를 기준으로
+    light를 계산한다
+  - 실제 바라보는 위치 B는 어떻게 구할까?
+
+<div>
+<img src="/opengl_course/note/images/13_parallax_map_idea.png" width="50%"/>
+</div>
+
+---
+
+## Parallax Mapping
+
+- Parallax mapping
+
+<div>
+<img src="/opengl_course/note/images/13_parallax_map_result.png" width="55%"/>
+</div>
+
+---
+
+## Parallax Mapping
+
+- Normal mapping v.s. Parallax mapping
+
+<div>
+<img src="/opengl_course/note/images/13_parallax_map_comparison.png" width="70%"/>
 </div>
 
 ---
