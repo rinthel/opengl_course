@@ -91,6 +91,11 @@ private:
     // shadow map
     ShadowMapUPtr m_shadowMap;
     ProgramUPtr m_lightingShadowProgram;
+
+    // normal map
+    TextureUPtr m_brickDiffuseTexture;
+    TextureUPtr m_brickNormalTexture;
+    ProgramUPtr m_normalProgram;
 };
 
 #endif // __CONTEXT_H__

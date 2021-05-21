@@ -1151,9 +1151,265 @@ m_shadowMap->SetBorderColor(glm::vec4(1.0f));
 
 ---
 
+## Normal Mapping
+
+- Geometric detail
+  - 해상도 좋은 텍스처를 입힌다 할 지라도 물체 표면의
+    요철 모양은 vertex의 개수를 늘려야 제대로 표현 가능
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_example_before.png" width="40%"/>
+</div>
+
 ---
 
 ## Normal Mapping
+
+- Idea
+  - 표면을 렌더링할 때 물체의 디테일을 결정하는 요소는 표면의 normal vector
+  - normal vector에 대한 텍스처 맵을 만들어서 각 픽셀의 normal 방향을 변경시켜보자
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_idea.png" width="80%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+- Normal map 적용 전후 비교
+  - vertex를 늘리지 않고 높은 수준의 geometric detail 표현 가능
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_example_after.png" width="80%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+- `image/brickwall.jpg` 저장
+
+<div>
+<img src="http://learnopengl.com/img/textures/brickwall.jpg" width="35%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+- `image/brickwall_normal.jpg` 저장
+  - 픽셀의 rgb 값에 normal xyz 좌표값이 저장되어 있음
+
+<div>
+<img src="http://learnopengl.com/img/textures/brickwall_normal.jpg" width="35%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+- `shader/normal.vs` 구현
+
+```glsl
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+uniform mat4 modelTransform;
+
+out vec2 texCoord;
+out vec3 position;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  texCoord = aTexCoord;
+  position = (modelTransform * vec4(aPos, 1.0)).xyz;
+}
+```
+
+---
+
+## Normal Mapping
+
+- `shader/normal.fs` 구현
+
+```glsl
+#version 330 core
+
+in vec2 texCoord;
+in vec3 position;
+out vec4 fragColor;
+
+uniform vec3 viewPos;
+uniform vec3 lightPos;
+
+uniform sampler2D diffuse;
+uniform sampler2D normalMap;
+
+void main() {
+  vec3 texColor = texture(diffuse, texCoord).xyz;
+  vec3 pixelNorm = normalize(
+    (texture(normalMap, texCoord).xyz * 2.0 - 1.0);
+  vec3 ambient = texColor * 0.2;
+
+  vec3 lightDir = normalize(lightPos - position);
+  float diff = max(dot(pixelNorm, lightDir), 0.0);
+  vec3 diffuse = diff * texColor * 0.8;
+
+  vec3 viewDir = normalize(viewPos - position);
+  vec3 reflectDir = reflect(-lightDir, pixelNorm);
+  float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+  vec3 specular = spec * vec3(0.5);
+
+  fragColor = vec4(ambient + diffuse + specular, 1.0);
+}
+```
+
+---
+
+## Normal Mapping
+
+- `normal * 2.0 - 1.0`
+  - texture 내의 픽셀값이 0~1 사이로 저장되어 있음
+  - normal vector의 값의 범위는 -1~1
+
+---
+
+## Normal Mapping
+
+- `Context` 클래스에 멤버 변수 추가
+
+```cpp
+  // normal map
+  TextureUPtr m_brickDiffuseTexture;
+  TextureUPtr m_brickNormalTexture;
+  ProgramUPtr m_normalProgram;
+```
+
+---
+
+## Normal Mapping
+
+- `Context::Init()`에서 텍스처 및 쉐이더 초기화
+
+```cpp
+  m_brickDiffuseTexture = Texture::CreateFromImage(
+    Image::Load("./image/brickwall.jpg", false).get());
+  m_brickNormalTexture = Texture::CreateFromImage(
+    Image::Load("./image/brickwall_normal.jpg", false).get());
+  m_normalProgram = Program::Create(
+    "./shader/normal.vs", "./shader/normal.fs");
+```
+
+---
+
+## Normal Mapping
+
+- `Context::Render()`에 렌더링 코드 추가
+
+```cpp
+  auto modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, 0.0f));
+  m_normalProgram->Use();
+  m_normalProgram->SetUniform("viewPos", m_cameraPos);
+  m_normalProgram->SetUniform("lightPos", m_light.position);
+  glActiveTexture(GL_TEXTURE0);
+  m_brickDiffuseTexture->Bind();
+  m_normalProgram->SetUniform("diffuse", 0);
+  glActiveTexture(GL_TEXTURE1);
+  m_brickNormalTexture->Bind();
+  m_normalProgram->SetUniform("normalMap", 1);
+  glActiveTexture(GL_TEXTURE0);
+  m_normalProgram->SetUniform("modelTransform", modelTransform);
+  m_normalProgram->SetUniform("transform", projection * view * modelTransform);
+  m_plane->Draw(m_normalProgram.get());
+```
+
+---
+
+## Normal Mapping
+
+- 빌드 및 실행
+  - 빛의 위치를 변경해가면서 벽의 요철 모양이 잘 렌더링 되는지 확인
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_simple_result.png" width="60%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+- 현재 구현의 문제점
+  - 그리는 물체가 회전하면 렌더링이 제대로 되지 않음
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_simple_artifact.png" width="60%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+- 원인
+  - normal map으로부터 얻어낸 normal 값을 world space 기준으로 처리하고 있음
+  - 물체의 local space를 기준으로 한다고 하더라도 normal map을 적용할 면이
+    xy면에 정렬되어 있어야 함
+  - 즉 평면이 아닌 입체에 대해서는 적용 불가능
+- 해결책
+  - Tangent space를 사용하자
+
+---
+
+## Normal Mapping
+
+- Tangent space
+  - 면의 normal (법선) 방향과 tangent (접선) 방향이 만들어내는 공간
+  - normal map이 보통 파란색인 이유
+    - 대부분의 픽셀이 (0, 0, 1)에 근접한 normal 벡터를 갖기 때문
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_tangent_space.png" width="40%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+- Tangent space
+  - TBN matrix
+    - Tangent, Binormal, Normal으로 구성된 matrix
+    - Tangent space를 local space로 변경하는 행렬로 사용
+  - 주안점
+    - Tangent space를 어떻게 구하는가?
+    - 즉, Tangent 벡터를 어떻게 구하는가? 
+
+---
+
+## Normal Mapping
+
+- Tangent 벡터 구하는 방법
+  - 텍스처 좌표를 이용
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_calculating_tangent.png" width="40%"/>
+</div>
+
+---
+
+## Normal Mapping
+
+<div>
+<img src="/opengl_course/note/images/13_normal_map_tangent_eq_01.png" height="8%"/>
+<img src="/opengl_course/note/images/13_normal_map_tangent_eq_02.png" height="8%"/>
+<img src="/opengl_course/note/images/13_normal_map_tangent_eq_03.png" height="8%"/>
+<img src="/opengl_course/note/images/13_normal_map_tangent_eq_04.png" height="8%"/>
+</div>
+
+---
 
 - idea
 - normal map on plane
