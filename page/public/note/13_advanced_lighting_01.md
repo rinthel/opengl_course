@@ -1083,28 +1083,73 @@ m_shadowMap->SetBorderColor(glm::vec4(1.0f));
 
 ---
 
-## Shadow Mapping
+## PCF
 
-- drawing shadow
-  - shadow projection
-  - shadow volume
-  - shadow map
-- depth map rendering
-- shadow rendering
-- improvement
-  - shadow acne
-  - peter panning (피터팬)
-  - oversamping
-- PCF (percentage-closer filtering)
-- projection
+- Jagged edge
+  - Depth map의 한정된 해상도에 의해서 딱딱한 블럭 모양의 그림자가 생성
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_jagged_edge.png" width="60%"/>
+</div>
+
+---
+
+## PCF
+
+- Percentage Closer Filtering
+  - shadow map으로부터 depth값을 여러 개 수집하자
+  - 수집한 depth값들로 계산된 shadow 값의 평균을 구하자
+
+---
+
+## PCF
+
+```glsl [2-11]
+  float bias = max(0.01 * (1.0 - dot(normal, lightDir)), 0.001);
+  float shadow = 0.0;
+  vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+  for(int x = -1; x <= 1; ++x) {
+      for (int y = -1; y <= 1; ++y) {
+          float pcfDepth = texture(shadowMap,
+            projCoords.xy + vec2(x, y) * texelSize).r;
+          shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+      }
+  }
+  shadow /= 9.0;
+```
+
+---
+
+## PCF
+
+- 빌드 및 결과
+  - 좀 더 부드러운 그림자
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_pcf.png" width="60%"/>
+</div>
 
 ---
 
 ## Shadow for Point Light
 
-- depth cubemap rendering
-- omni-directional shadow map
-- PCF
+- Point light일 경우
+  - 모든 방향으로 빛이 뻗어나감
+  - 단일 shadow map은 하나의 방향만 고려할 수 밖에 없음
+
+---
+
+## Shadow for Point Light
+
+- Omni-directional shadow map
+  - 하나의 depth map에 그림을 그리는 대신
+    depth cube map을 생성하자
+
+<div>
+<img src="/opengl_course/note/images/13_shadow_map_point_light_idea.png" width="60%"/>
+</div>
+
+---
 
 ---
 
