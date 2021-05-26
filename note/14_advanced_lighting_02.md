@@ -398,7 +398,283 @@ void main() {
 
 ## Deferred Shading
 
-- 
+- `Framebuffer` 클래스 리팩토링
+  - 여러 개의 color attachment를 사용할 수 있도록 하기 위한 코드 수정
+
+```cpp [3-4, 10-15, 19-20, 24]
+class Framebuffer {
+public:
+  static FramebufferUPtr Create(
+    const std::vector<TexturePtr>& colorAttachments);
+  static void BindToDefault();
+  ~Framebuffer();
+
+  const uint32_t Get() const { return m_framebuffer; }
+  void Bind() const;
+  int GetColorAttachmentCount() const {
+    return (int)m_colorAttachments.size();
+  }
+  const TexturePtr GetColorAttachment(int index = 0) const {
+    return m_colorAttachments[index];
+  }
+
+private:
+  Framebuffer() {}
+  bool InitWithColorAttachments(
+    const std::vector<TexturePtr>& colorAttachments);
+
+  uint32_t m_framebuffer { 0 };
+  uint32_t m_depthStencilBuffer { 0 };
+  std::vector<TexturePtr> m_colorAttachments;
+};
+```
+
+---
+
+## Deferred Shading
+
+- `Framebuffer` 클래스 리팩토링
+
+```cpp [2, 4]
+FramebufferUPtr Framebuffer::Create(
+  const std::vector<TexturePtr>& colorAttachments) {
+  auto framebuffer = FramebufferUPtr(new Framebuffer());
+  if (!framebuffer->InitWithColorAttachments(colorAttachments))
+    return nullptr;
+  return std::move(framebuffer);
+}
+```
+
+---
+
+## Deferred Shading
+
+- `Framebuffer` 클래스 리팩토링
+
+```cpp [2, 7-11, 13-22, 26-27]
+bool Framebuffer::InitWithColorAttachments(
+  const std::vector<TexturePtr>& colorAttachments) {
+  m_colorAttachments = colorAttachments;
+  glGenFramebuffers(1, &m_framebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+
+  for (size_t i = 0; i < m_colorAttachments.size(); i++) {
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+      GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D,
+      m_colorAttachments[i]->Get(), 0);
+  }
+
+  if (m_colorAttachments.size() > 0) {
+    std::vector<GLenum> attachments;
+    attachments.resize(m_colorAttachments.size());
+    for (size_t i = 0; i < m_colorAttachments.size(); i++)
+      attachments[i] = GL_COLOR_ATTACHMENT0 + i;
+    glDrawBuffers(m_colorAttachments.size(), attachments.data());
+  }
+
+  int width = m_colorAttachments[0]->GetWidth();
+  int height = m_colorAttachments[0]->GetHeight();
+
+  glGenRenderbuffers(1, &m_depthStencilBuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
+    width, height);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Init()`에서 호출하고 있는 framebuffer 생성 코드 수정
+
+```cpp
+  m_framebuffer = Framebuffer::Create({
+      Texture::Create(width, height, GL_RGBA),
+  });
+```
+
+---
+
+## Deferred Shading
+
+- `Texture::SetTextureFormat()` 코드 수정
+  - `GL_RGBA16F` 텍스처 생성시 image format은 `GL_RGBA`를 사용
+
+```cpp [8-16, 20]
+void Texture::SetTextureFormat(int width, int height,
+  uint32_t format, uint32_t type) {
+  m_width = width;
+  m_height = height;
+  m_format = format;
+  m_type = type;
+
+  GLenum imageFormat = GL_RGBA;
+  if (m_format == GL_DEPTH_COMPONENT) {
+    imageFormat = GL_DEPTH_COMPONENT;        
+  }
+  else if (m_format == GL_RGB ||
+    m_format == GL_RGB16F ||
+    m_format == GL_RGB32F) {
+    imageFormat = GL_RGB;
+  }
+
+  glTexImage2D(GL_TEXTURE_2D, 0, m_format,
+    m_width, m_height, 0,
+    imageFormat, m_type,
+    nullptr);
+}
+```
+
+---
+
+## Deferred Shading
+
+- `shader/defer_geo.vs` 추가
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+uniform mat4 modelTransform;
+
+out vec3 normal;
+out vec2 texCoord;
+out vec3 position;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  normal = (transpose(inverse(modelTransform)) * vec4(aNormal, 0.0)).xyz;
+  texCoord = aTexCoord;
+  position = (modelTransform * vec4(aPos, 1.0)).xyz;
+}
+```
+
+---
+
+## Deferred Shading
+
+- `shader/defer_geo.fs` 추가
+
+```glsl
+#version 330 core
+
+layout (location = 0) out vec4 gPosition;
+layout (location = 1) out vec4 gNormal;
+layout (location = 2) out vec4 gAlbedoSpec;
+
+in vec3 position;
+in vec3 normal;
+in vec2 texCoord;
+
+struct Material {
+  sampler2D diffuse;
+  sampler2D specular;
+};
+uniform Material material;
+
+void main() {
+  // store the fragment position vector in the first gbuffer texture
+  gPosition = vec4(position, 1.0);
+  // also store the per-fragment normals into the gbuffer
+  gNormal = vec4(normalize(normal), 1.0);
+  // and the diffuse per-fragment color
+  gAlbedoSpec.rgb = texture(material.diffuse, texCoord).rgb;
+  // store specular intensity in gAlbedoSpec’s alpha component
+  gAlbedoSpec.a = texture(material.specular, texCoord).r;
+}
+```
+
+---
+
+## Deferred Shading
+
+- `Context`에 deferred shading 관련 멤버 변수 추가
+
+```cpp
+  // deferred shading
+  FramebufferUPtr m_deferGeoFramebuffer;
+  ProgramUPtr m_deferGeoProgram;
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Reshape()`에서 G-buffer framebuffer 생성
+
+```cpp
+  m_deferGeoFramebuffer = Framebuffer::Create({
+    Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),
+    Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),
+    Texture::Create(width, height, GL_RGBA, GL_UNSIGNED_BYTE),
+  });
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Init()`에서 program 초기화
+
+```cpp
+  m_deferGeoProgram = Program::Create(
+    "./shader/defer_geo.vs", "./shader/defer_geo.fs");
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Render()`에서 deferred shading 첫 번째 패스 렌더링
+
+```cpp
+  m_deferGeoFramebuffer->Bind();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, m_width, m_height);
+  m_deferGeoProgram->Use();
+  DrawScene(view, projection, m_deferGeoProgram.get());
+
+  Framebuffer::BindToDefault();
+  glViewport(0, 0, m_width, m_height);
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Render()`에서 결과 확인을 위한 ImGui 윈도우 추가
+
+```cpp
+  if (ImGui::Begin("G-Buffers")) {
+    const char* bufferNames[] = {
+      "position", "normal", "albedo/specular",
+    };
+    static int bufferSelect = 0;
+    ImGui::Combo("buffer", &bufferSelect, bufferNames, 3);
+    float width = ImGui::GetContentRegionAvailWidth();
+    float height = width * ((float)m_height / (float)m_width);
+    auto selectedAttachment =
+      m_deferGeoFramebuffer->GetColorAttachment(bufferSelect);
+    ImGui::Image((ImTextureID)selectedAttachment->Get(),
+      ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+  }
+  ImGui::End();
+```
+
+---
+
+## Deferred Shading
+
+- 빌드 및 결과
+  - ImGui에서 buffer를 바꿔가면서 결과 확인
+
+<div>
+<img src="/opengl_course/note/images/14_deferred_geo_pass_result.png" width="70%"/>
+</div>
 
 ---
 
