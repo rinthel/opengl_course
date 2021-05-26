@@ -96,6 +96,10 @@ private:
     TextureUPtr m_brickDiffuseTexture;
     TextureUPtr m_brickNormalTexture;
     ProgramUPtr m_normalProgram;
+
+    // deferred shading
+    FramebufferUPtr m_deferGeoFramebuffer;
+    ProgramUPtr m_deferGeoProgram;
 };
 
 #endif // __CONTEXT_H__

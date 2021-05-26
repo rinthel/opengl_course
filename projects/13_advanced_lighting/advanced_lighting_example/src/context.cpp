@@ -36,8 +36,15 @@ void Context::Reshape(int width, int height) {
     m_height = height;
     glViewport(0, 0, m_width, m_height);
 
-    m_framebuffer = Framebuffer::Create(
-        Texture::Create(width, height, GL_RGBA));
+    m_framebuffer = Framebuffer::Create({
+        Texture::Create(width, height, GL_RGBA),
+    });
+
+    m_deferGeoFramebuffer = Framebuffer::Create({
+        Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),
+        Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),
+        Texture::Create(width, height, GL_RGBA, GL_UNSIGNED_BYTE),
+    });
 }
 
 void Context::MouseMove(double x, double y) {
@@ -107,7 +114,34 @@ void Context::Render() {
     }
     ImGui::End();
 
+    if (ImGui::Begin("G-Buffers")) {
+        const char* bufferNames[] = {
+            "position", "normal", "albedo/specular",
+        };
+        static int bufferSelect = 0;
+        ImGui::Combo("buffer", &bufferSelect, bufferNames, 3);
+        float width = ImGui::GetContentRegionAvailWidth();
+        float height = width * ((float)m_height / (float)m_width);
+        auto selectedAttachment = m_deferGeoFramebuffer->GetColorAttachment(bufferSelect);
+        ImGui::Image((ImTextureID)selectedAttachment->Get(),
+            ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+    }
+    ImGui::End();
+
     // m_framebuffer->Bind();
+    m_cameraFront =
+        glm::rotate(glm::mat4(1.0f),
+            glm::radians(m_cameraYaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f),
+            glm::radians(m_cameraPitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
+        glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
+
+    auto projection = glm::perspective(glm::radians(45.0f),
+        (float)m_width / (float)m_height, 0.01f, 150.0f);
+    auto view = glm::lookAt(
+        m_cameraPos,
+        m_cameraPos + m_cameraFront,
+        m_cameraUp);
 
     auto lightView = glm::lookAt(m_light.position,
         m_light.position + m_light.direction,
@@ -127,24 +161,16 @@ void Context::Render() {
     m_simpleProgram->SetUniform("color", glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
     DrawScene(lightView, lightProjection, m_simpleProgram.get());
 
+    m_deferGeoFramebuffer->Bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0, m_width, m_height);
+    m_deferGeoProgram->Use();
+    DrawScene(view, projection, m_deferGeoProgram.get());
+
     Framebuffer::BindToDefault();
     glViewport(0, 0, m_width, m_height);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-    m_cameraFront =
-        glm::rotate(glm::mat4(1.0f),
-            glm::radians(m_cameraYaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
-        glm::rotate(glm::mat4(1.0f),
-            glm::radians(m_cameraPitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
-        glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
-
-    auto projection = glm::perspective(glm::radians(45.0f),
-        (float)m_width / (float)m_height, 0.01f, 150.0f);
-    auto view = glm::lookAt(
-        m_cameraPos,
-        m_cameraPos + m_cameraFront,
-        m_cameraUp);
 
     auto skyboxModelTransform =
         glm::translate(glm::mat4(1.0), m_cameraPos) *
@@ -376,6 +402,8 @@ bool Context::Init() {
     m_brickNormalTexture = Texture::CreateFromImage(
         Image::Load("./image/brickwall_normal.jpg", false).get());
     m_normalProgram = Program::Create("./shader/normal.vs", "./shader/normal.fs");
+
+    m_deferGeoProgram = Program::Create("./shader/defer_geo.vs", "./shader/defer_geo.fs");
 
     return true;
 }
