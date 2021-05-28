@@ -23,5 +23,6 @@ using klassName ## WPtr = std::weak_ptr<klassName>;
 
 std::optional<std::string> LoadTextFile(const std::string& filename);
 glm::vec3 GetAttenuationCoeff(float distance);
+float RandomRange(float minValue = 0.0f, float maxValue = 1.0f);
 
 #endif // __COMMON_H__
