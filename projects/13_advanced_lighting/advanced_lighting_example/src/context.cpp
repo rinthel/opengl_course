@@ -456,6 +456,30 @@ bool Context::Init() {
             RandomRange(0.05f, 0.3f));
     }
 
+    m_ssaoKernel.resize(64);
+    for (size_t i = 0; i < m_ssaoKernel.size(); i++) {
+        glm::vec3 sample(
+            RandomRange(-1.0f, 1.0f),
+            RandomRange(-1.0f, 1.0f),
+            RandomRange(0.0f, 1.0f));
+        sample = glm::normalize(sample) * RandomRange();
+
+        float t = (float)i / (float)m_ssaoKernel.size();
+        float t2 = t * t;
+        float scale = (1.0f - t2) * 0.1f + t2 * 1.0f;
+
+        m_ssaoKernel[i] = sample * scale;
+    }
+
+    m_ssaoNoise.resize(16);
+    for (size_t i = 0; i < m_ssaoNoise.size(); i++) {
+        glm::vec3 sample(
+            RandomRange(-1.0f, 1.0f),
+            RandomRange(-1.0f, 1.0f),
+            0.0f);
+        m_ssaoNoise[i] = sample;
+    }
+
     return true;
 }
 

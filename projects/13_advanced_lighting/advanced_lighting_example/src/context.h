@@ -107,6 +107,10 @@ private:
         glm::vec3 color;
     };
     std::vector<DeferLight> m_deferLights;
+
+    // ssao
+    std::vector<glm::vec3> m_ssaoKernel;
+    std::vector<glm::vec3> m_ssaoNoise;
 };
 
 #endif // __CONTEXT_H__
