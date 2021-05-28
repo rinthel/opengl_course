@@ -678,12 +678,300 @@ void main() {
 
 ---
 
-- idea
-- g-buffer
-- deferred lighting pass
-- combining deferred with forward
-- many lights
-- deferred v.s. forward
+## Deferred Shading
+
+- `shader/defer_light.vs` 추가
+  - `texture.vs`와 거의 동일
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+out vec2 texCoord;
+
+void main() {
+    gl_Position = transform * vec4(aPos, 1.0);
+    texCoord = aTexCoord;
+}
+```
+
+---
+
+## Deferred Shading
+
+- `shader/defer_light.fs` 추가
+
+```glsl
+#version 330 core
+out vec4 fragColor;
+in vec2 texCoord;
+
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D gAlbedoSpec;
+
+struct Light {
+  vec3 position;
+  vec3 color;
+};
+const int NR_LIGHTS = 32;
+uniform Light lights[NR_LIGHTS];
+uniform vec3 viewPos;
+void main() {
+  // retrieve data from G-buffer
+  vec3 fragPos = texture(gPosition, texCoord).rgb;
+  vec3 normal = texture(gNormal, texCoord).rgb;
+  vec3 albedo = texture(gAlbedoSpec, texCoord).rgb;
+  float specular = texture(gAlbedoSpec, texCoord).a;
+  // then calculate lighting as usual
+  vec3 lighting = albedo * 0.1; // hard-coded ambient component
+  vec3 viewDir = normalize(viewPos - fragPos);
+  for(int i = 0; i < NR_LIGHTS; ++i) {
+    // diffuse
+    vec3 lightDir = normalize(lights[i].position - fragPos);
+    vec3 diffuse = max(dot(normal, lightDir), 0.0) * albedo * lights[i].color;
+    lighting += diffuse;
+  }
+  fragColor = vec4(lighting, 1.0);
+}
+```
+
+---
+
+## Deferred Shading
+
+- 쉐이더 구현
+  - 개념 이해만을 돕기 위한 단순한 버전
+  - 텍스처로부터 lighting 계산에 필요한 정보를 얻어옴
+  - light는 uniform 형태로 전달
+  - 각 픽셀마다 light 연산을 반복 수행
+
+---
+
+## Deferred Shading
+
+- `src/common`에 랜덤값 생성 함수 추가
+
+```cpp
+// common.h
+float RandomRange(float minValue = 0.0f, float maxValue = 1.0f);
+```
+
+```cpp
+// common.cpp
+float RandomRange(float minValue, float maxValue) {
+  return ((float)rand() / (float)RAND_MAX) *
+    (maxValue - minValue) + minValue;
+}
+```
+
+---
+
+## Deferred Shading
+
+- `Context` 클래스에 쉐이더 프로그램 멤버와 light 정보를 담을 멤버 변수 추가
+
+```cpp
+  ProgramUPtr m_deferLightProgram;
+
+  struct DeferLight {
+    glm::vec3 position;
+    glm::vec3 color;
+  };
+  std::vector<DeferLight> m_deferLights;
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Init()`에서 프로그램 초기화 및 light 설정
+
+```cpp [3-15]
+  m_deferGeoProgram = Program::Create(
+    "./shader/defer_geo.vs", "./shader/defer_geo.fs");
+  m_deferLightProgram = Program::Create(
+    "./shader/defer_light.vs", "./shader/defer_light.fs");
+  m_deferLights.resize(32);
+  for (size_t i = 0; i < m_deferLights.size(); i++) {
+    m_deferLights[i].position = glm::vec3(
+      RandomRange(-10.0f, 10.0f),
+      RandomRange(1.0f, 4.0f),
+      RandomRange(-10.0f, 10.0f));
+    m_deferLights[i].color = glm::vec3(
+      RandomRange(0.05f, 0.3f),
+      RandomRange(0.05f, 0.3f),
+      RandomRange(0.05f, 0.3f));
+  }
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Render()`에서 geometry pass 이후에 렌더링 코드 추가
+
+```cpp [4-25]
+  Framebuffer::BindToDefault();
+  glViewport(0, 0, m_width, m_height);
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+  
+  m_deferLightProgram->Use();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_deferGeoFramebuffer->GetColorAttachment(2)->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferLightProgram->SetUniform("gPosition", 0);
+  m_deferLightProgram->SetUniform("gNormal", 1);
+  m_deferLightProgram->SetUniform("gAlbedoSpec", 2);
+  for (size_t i = 0; i < m_deferLights.size(); i++) {
+    auto posName = fmt::format("lights[{}].position", i);
+    auto colorName = fmt::format("lights[{}].color", i);
+    m_deferLightProgram->SetUniform(posName, m_deferLights[i].position);
+    m_deferLightProgram->SetUniform(colorName, m_deferLights[i].color);
+  }
+  m_deferLightProgram->SetUniform("transform",
+    glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_plane->Draw(m_deferLightProgram.get());
+```
+
+---
+
+## Deferred Shading
+
+- `Context::Render()`에서 그동안 그려왔던 나머지 코드는 주석처리
+  - skybox
+  - light position을 알려주는 box
+  - shadow map / shadow+lighting
+  - normal mapping
+
+---
+
+## Deferred Shading
+
+- 빌드 및 결과
+  - 여러 lighting이 적용된 렌더링
+
+<div>
+<img src="/opengl_course/note/images/14_deferred_light_pass_result.png" width="70%"/>
+</div>
+
+---
+
+## Deferred Shading
+
+- 단점
+  - blending operation 적용이 불가능
+  - 모든 픽셀을 동일한 shading 방식으로 그려야 함
+
+---
+
+## Deferred Shading
+
+- Forward rendering과 혼용하기
+  - Deferred shading으로 먼저 대부분의 장면을 그린다
+  - Forward rendering으로 블랜딩 처리, UI 등을 그린다
+
+---
+
+## Deferred Shading
+
+- Forward rendering과 혼용하기
+  - 올바른 forward rendering을 수행하기 위해서
+    geometry pass때 렌더링된 depth buffer를 가져올 필요가 있음
+
+```cpp
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, m_deferGeoFramebuffer->Get());
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, m_width, m_height,
+    0, 0, m_width, m_height,
+    GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+```
+
+---
+
+## Deferred Shading
+
+- light 위치 그리기
+
+```cpp
+  m_simpleProgram->Use();
+  for (size_t i = 0; i < m_deferLights.size(); i++) {
+    m_simpleProgram->SetUniform("color",
+      glm::vec4(m_deferLights[i].color, 1.0f));
+    m_simpleProgram->SetUniform("transform",
+      projection * view *
+      glm::translate(glm::mat4(1.0f), m_deferLights[i].position) *
+      glm::scale(glm::mat4(1.0f), glm::vec3(0.1f)));
+    m_box->Draw(m_simpleProgram.get());
+  }
+```
+
+---
+
+## Deferred Shading
+
+- 빌드 및 결과
+  - Deferred shading으로 그려진 결과 위에 단색으로 그려진 light position
+
+<div>
+<img src="/opengl_course/note/images/14_deferred_combine_forward.png" width="60%"/>
+</div>
+
+---
+
+## Deferred Shading
+
+- Many lights
+  - Deferred shading은 forward rendering 방식에 비해
+    매우 많은 light 처리에도 효율적임
+  - 다만 실습 코드와 같이 여러 light를 uniform으로 보내는 방식은
+    효율적이지 않음
+    - 결국 픽셀당 모든 light에 대한 계산을 해야하기 때문
+
+---
+
+## Deferred Shading
+
+- Many lights
+  - light volume의 개념을 활용한 처리
+    - attenuation을 바탕으로 적용되는 범위를 계산
+
+---
+
+## Deferred Shading
+
+- Many lights
+  - geometry pass
+  - 하나의 light를 처리할 수 있는 lighting pass 준비
+  - lighting pass를 모든 light에 대해 반복 적용
+    - 각각의 light에 대해 light volume을 구 형태로 그리기
+    - light 결과값을 누적
+
+---
+
+## Deferred Shading
+
+- light volume을 통해 lighting pass를 두번 거친 결과
+
+<div>
+<img src="/opengl_course/note/images/14_deferred_many_lights.png" width="80%"/>
+</div>
+
+---
+
+## Deferred Shading
+
+- Deferred v.s. forward
+  - light 개수가 많지 않으면 forward rendering으로도 충분
+  - scene이 복잡할수록 deferred rendering이 더 빠르게 됨
 
 ---
 
