@@ -977,6 +977,111 @@ float RandomRange(float minValue, float maxValue) {
 
 ## SSAO
 
+- Ambient light의 개념
+  - scene에 포함된 모든 빛들이 object에 부딪혀 발생된 산란을 시뮬레이션하는 것
+  - 고정된 값으로 통일된 ambient light는 현실적이지 않음
+
+---
+
+## SSAO
+
+- Ambient occlusion
+  - 임의의 위치가 얼마나 주변에 차폐되어 있는가를 계산한 것
+    - 차폐가 많이 되어있을수록 빛을 덜 받을 것이다
+
+---
+
+## SSAO
+
+- Ambient occlusion 계산 방식
+  - 각각의 위치마다 가상의 광선을 여러 개 발사하여 부딪힌 정도를 수집
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_ambient_occlusion_explain.png" width="40%"/>
+</div>
+
+---
+
+## SSAO
+
+- SSAO
+  - Screen-Space Ambient Occlusion
+  - 2007년 Crytek이 발표, Crysis 제작 때 활용
+  - Depth buffer를 활용한 ambient occlusion 계산
+  - 일반적인 ambient occlusion 계산에 비해 매우 빠름
+
+---
+
+## SSAO
+
+- SSAO Idea
+  - framebuffer의 각 픽셀 주위에 여러 depth 샘플을 바탕으로 occlusion factor를 계산
+    - 샘플 위치의 depth값이 샘플 위치보다 더 작다면 차폐가 발생한 것
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_idea.png" width="40%"/>
+</div>
+
+---
+
+## SSAO
+
+- SSAO Idea
+  - 샘플 개수가 너무 적음: banding 현상이 일어남
+  - 샘플 개수가 너무 많음: 성능 저하
+  - 샘플 수집을 위한 커널을 랜덤하게 회전시킨 결과를 blur 처리하여 품질 향상 가능
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_idea_2.png" width="70%"/>
+</div>
+
+---
+
+## SSAO
+
+- SSAO Idea
+  - 완전 구형의 샘플 커널을 사용하는 경우 평평한 부분에 대해
+    항상 절반 가량의 샘플에 대해 차폐가 발생
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_whole_sphere.png" width="50%"/>
+</div>
+
+---
+
+## SSAO
+
+- SSAO Idea
+  - 따라서 normal 방향을 기준으로 회전된 반구 형태의 커널을 사용
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_idea_3.png" width="60%"/>
+</div>
+
+---
+
+## SSAO
+
+- SSAO Sample buffer
+  - G-Buffers
+    - Position
+    - Normal
+    - Albedo
+  - Sample kernel
+  - Random rotation vector
+
+---
+
+## SSAO
+
+- SSAO process
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_process.png" width="90%"/>
+</div>
+
+---
+
 - idea
 - sample buffer
 - normal-oriented hemisphere
