@@ -112,8 +112,8 @@ private:
     FramebufferUPtr m_ssaoFramebuffer;
     ProgramUPtr m_ssaoProgram;
     ModelUPtr m_model;
+    TextureUPtr m_ssaoNoiseTexture;
     // std::vector<glm::vec3> m_ssaoKernel;
-    // TextureUPtr m_ssaoNoiseTexture;
 };
 
 #endif // __CONTEXT_H__

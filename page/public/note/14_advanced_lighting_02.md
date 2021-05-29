@@ -1262,6 +1262,143 @@ void main() {
 </div>
 
 ---
+
+## SSAO
+
+- SSAO에서 사용할 random rotation vector를 텍스처로 만들어 넣자
+
+```cpp [5]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 random rotation vector 초기화
+
+```cpp
+  std::vector<glm::vec3> ssaoNoise;
+  ssaoNoise.resize(16);
+  for (size_t i = 0; i < ssaoNoise.size(); i++) {
+    // randomly selected tangent direction
+    glm::vec3 sample(RandomRange(-1.0f, 1.0f),
+      RandomRange(-1.0f, 1.0f), 0.0f);
+    ssaoNoise[i] = sample;
+  }
+
+  m_ssaoNoiseTexture = Texture::Create(4, 4, GL_RGB16F, GL_FLOAT);
+  m_ssaoNoiseTexture->Bind();
+  m_ssaoNoiseTexture->SetFilter(GL_NEAREST, GL_NEAREST);
+  m_ssaoNoiseTexture->SetWrap(GL_REPEAT, GL_REPEAT);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4,
+    GL_RGB, GL_FLOAT, ssaoNoise.data());
+```
+
+---
+
+## SSAO
+
+- Random rotation vector
+  - 정확히는 회전 값이 아닌 임의의 tangent vector 방향
+    - normal 방향이 z방향에 가까우므로 xy축 값만 생성
+  - 4x4 패치 형태의 렌덤값
+  - 이미지 전체에 타일링하여 반복적으로 사용
+
+---
+
+## SSAO
+
+- `shader/ssao.fs` 수정
+
+```glsl [9, 13, 19-27]
+#version 330 core
+
+out float fragColor;
+
+in vec2 texCoord;
+
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D texNoise;
+
+uniform mat4 view;
+
+uniform vec2 noiseScale;
+
+void main() {
+  vec4 worldPos = texture(gPosition, texCoord);
+  if (worldPos.w <= 0.0f)
+      discard;
+  vec3 fragPos = (view * vec4(worldPos.xyz, 1.0)).xyz;
+  vec3 normal = (view * vec4(texture(gNormal, texCoord).xyz, 0.0)).xyz;
+  vec3 randomVec = texture(texNoise, texCoord * noiseScale).xyz;
+
+  vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+  vec3 bitangent = cross(normal, tangent);
+  mat3 TBN = mat3(tangent, bitangent, normal);
+
+  fragColor = tangent.x;
+}
+```
+
+---
+
+## SSAO
+
+- Shader 코드 설명
+  - `texNoise`로부터 random rotation vector 가져오기
+  - Gram-Schmidt 방법을 통해 normal 방향과 수직인 tangent 계산
+  - 적절히 회전된 tangent space matrix 생성
+    - 이후 이 TBN 행렬을 기준으로 random sample에 대한 차폐 여부를 조사
+
+---
+
+## SSAO
+
+- `Context::Render()` 함수에서 SSAO 렌더링 부분에 uniform 설정 추가
+
+```cpp [9-10, 14-17]
+  m_ssaoFramebuffer->Bind();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, m_width, m_height);
+  m_ssaoProgram->Use();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_ssaoNoiseTexture->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  m_ssaoProgram->SetUniform("gPosition", 0);
+  m_ssaoProgram->SetUniform("gNormal", 1);
+  m_ssaoProgram->SetUniform("texNoise", 2);
+  m_ssaoProgram->SetUniform("noiseScale", glm::vec2(
+    (float)m_width / (float)m_ssaoNoiseTexture->GetWidth(),
+    (float)m_height / (float)m_ssaoNoiseTexture->GetHeight()));
+  m_ssaoProgram->SetUniform("transform",
+      glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_ssaoProgram->SetUniform("view", view);
+  m_plane->Draw(m_ssaoProgram.get());
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - tangent의 x값이 특정한 패턴으로 렌더링
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_random_tangent.png" width="70%"/>
+</div>
+
+---
+
 - idea
 - sample buffer
 - normal-oriented hemisphere
