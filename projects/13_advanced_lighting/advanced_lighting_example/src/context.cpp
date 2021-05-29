@@ -45,6 +45,10 @@ void Context::Reshape(int width, int height) {
         Texture::Create(width, height, GL_RGBA16F, GL_FLOAT),
         Texture::Create(width, height, GL_RGBA, GL_UNSIGNED_BYTE),
     });
+
+    m_ssaoFramebuffer = Framebuffer::Create({
+        Texture::Create(width, height, GL_RED),
+    });
 }
 
 void Context::MouseMove(double x, double y) {
@@ -128,6 +132,14 @@ void Context::Render() {
     }
     ImGui::End();
 
+    if (ImGui::Begin("SSAO")) {
+        float width = ImGui::GetContentRegionAvailWidth();
+        float height = width * ((float)m_height / (float)m_width);
+        ImGui::Image((ImTextureID)m_ssaoFramebuffer->GetColorAttachment()->Get(),
+            ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+    }
+    ImGui::End();
+
     // m_framebuffer->Bind();
     m_cameraFront =
         glm::rotate(glm::mat4(1.0f),
@@ -153,14 +165,31 @@ void Context::Render() {
             1.0f, 1.0f, 20.0f);
 
     m_deferGeoFramebuffer->Bind();
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, m_width, m_height);
     m_deferGeoProgram->Use();
     DrawScene(view, projection, m_deferGeoProgram.get());
 
+    m_ssaoFramebuffer->Bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glViewport(0, 0, m_width, m_height);
+    m_ssaoProgram->Use();
+    glActiveTexture(GL_TEXTURE0);
+    m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+    glActiveTexture(GL_TEXTURE1);
+    m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+    glActiveTexture(GL_TEXTURE0);
+    m_ssaoProgram->SetUniform("gPosition", 0);
+    m_ssaoProgram->SetUniform("gNormal", 1);
+    m_ssaoProgram->SetUniform("transform",
+        glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+    m_ssaoProgram->SetUniform("view", view);
+    m_plane->Draw(m_ssaoProgram.get());
+
     Framebuffer::BindToDefault();
     glViewport(0, 0, m_width, m_height);
-
+    glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     m_deferLightProgram->Use();
@@ -456,29 +485,36 @@ bool Context::Init() {
             RandomRange(0.05f, 0.3f));
     }
 
-    m_ssaoKernel.resize(64);
-    for (size_t i = 0; i < m_ssaoKernel.size(); i++) {
-        glm::vec3 sample(
-            RandomRange(-1.0f, 1.0f),
-            RandomRange(-1.0f, 1.0f),
-            RandomRange(0.0f, 1.0f));
-        sample = glm::normalize(sample) * RandomRange();
+    // m_ssaoKernel.resize(64);
+    // for (size_t i = 0; i < m_ssaoKernel.size(); i++) {
+    //     glm::vec3 sample(
+    //         RandomRange(-1.0f, 1.0f),
+    //         RandomRange(-1.0f, 1.0f),
+    //         RandomRange(0.0f, 1.0f));
+    //     sample = glm::normalize(sample) * RandomRange();
 
-        float t = (float)i / (float)m_ssaoKernel.size();
-        float t2 = t * t;
-        float scale = (1.0f - t2) * 0.1f + t2 * 1.0f;
+    //     float t = (float)i / (float)m_ssaoKernel.size();
+    //     float t2 = t * t;
+    //     float scale = (1.0f - t2) * 0.1f + t2 * 1.0f;
 
-        m_ssaoKernel[i] = sample * scale;
-    }
+    //     m_ssaoKernel[i] = sample * scale;
+    // }
 
-    m_ssaoNoise.resize(16);
-    for (size_t i = 0; i < m_ssaoNoise.size(); i++) {
-        glm::vec3 sample(
-            RandomRange(-1.0f, 1.0f),
-            RandomRange(-1.0f, 1.0f),
-            0.0f);
-        m_ssaoNoise[i] = sample;
-    }
+    // std::vector<glm::vec3> ssaoNoise;
+    // ssaoNoise.resize(16);
+    // for (size_t i = 0; i < ssaoNoise.size(); i++) {
+    //     glm::vec3 sample(RandomRange(-1.0f, 1.0f), RandomRange(-1.0f, 1.0f), 0.0f);
+    //     ssaoNoise[i] = sample;
+    // }
+
+    // m_ssaoNoiseTexture = Texture::Create(4, 4, GL_RGB16F, GL_FLOAT);
+    // m_ssaoNoiseTexture->Bind();
+    // m_ssaoNoiseTexture->SetFilter(GL_NEAREST, GL_NEAREST);
+    // m_ssaoNoiseTexture->SetWrap(GL_REPEAT, GL_REPEAT);
+    // glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4, GL_RGB, GL_FLOAT, ssaoNoise.data());
+
+    m_ssaoProgram = Program::Create("./shader/ssao.vs", "./shader/ssao.fs");
+    m_model = Model::Load("./model/backpack.obj");
 
     return true;
 }
@@ -526,4 +562,13 @@ void Context::DrawScene(const glm::mat4& view,
     program->SetUniform("modelTransform", modelTransform);
     m_box2Material->SetToProgram(program);
     m_box->Draw(program);
+
+    modelTransform =
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.55f, 0.0f)) *
+        glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+        glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
+    transform = projection * view * modelTransform;
+    program->SetUniform("transform", transform);
+    program->SetUniform("modelTransform", modelTransform);
+    m_model->Draw(program);
 }

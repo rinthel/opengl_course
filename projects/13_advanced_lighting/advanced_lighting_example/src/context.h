@@ -109,8 +109,11 @@ private:
     std::vector<DeferLight> m_deferLights;
 
     // ssao
-    std::vector<glm::vec3> m_ssaoKernel;
-    std::vector<glm::vec3> m_ssaoNoise;
+    FramebufferUPtr m_ssaoFramebuffer;
+    ProgramUPtr m_ssaoProgram;
+    ModelUPtr m_model;
+    // std::vector<glm::vec3> m_ssaoKernel;
+    // TextureUPtr m_ssaoNoiseTexture;
 };
 
 #endif // __CONTEXT_H__

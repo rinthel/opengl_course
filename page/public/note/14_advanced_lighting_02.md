@@ -239,7 +239,7 @@ void main() {
 ## Bloom
 
 - Separate Gaussian blur
-  - Tow-pass Gaussian blur
+  - Two-pass Gaussian blur
   - 커널의 형태가 대칭형일 경우 x축 / y축으로 나눠서 처리할 수 있음
   - k^2 번의 연산이 2k 번으로 감소
 
@@ -633,6 +633,7 @@ void main() {
 
 ```cpp
   m_deferGeoFramebuffer->Bind();
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(0, 0, m_width, m_height);
   m_deferGeoProgram->Use();
@@ -640,6 +641,7 @@ void main() {
 
   Framebuffer::BindToDefault();
   glViewport(0, 0, m_width, m_height);
+  glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
 ```
 
 ---
@@ -979,7 +981,7 @@ float RandomRange(float minValue, float maxValue) {
 
 - Ambient light의 개념
   - scene에 포함된 모든 빛들이 object에 부딪혀 발생된 산란을 시뮬레이션하는 것
-  - 고정된 값으로 통일된 ambient light는 현실적이지 않음
+  - 일정한 값으로 고정된 ambient light는 현실적이지 않음
 
 ---
 
@@ -1082,6 +1084,184 @@ float RandomRange(float minValue, float maxValue) {
 
 ---
 
+## SSAO
+
+- `Texture::SetTextureFormat()` 함수 수정
+
+```cpp [6-15]
+  else if (m_format == GL_RGB ||
+    m_format == GL_RGB16F ||
+    m_format == GL_RGB32F) {
+    imageFormat = GL_RGB;
+  }
+  else if (m_format == GL_RG ||
+    m_format == GL_RG16F ||
+    m_format == GL_RG32F) {
+    imageFormat = GL_RG;
+  }
+  else if (m_format == GL_RED ||
+    m_format == GL_R ||
+    m_format == GL_R16F ||
+    m_format == GL_R32F) {
+    imageFormat = GL_RED;
+  }
+```
+
+---
+
+## SSAO
+
+- `shader/ssao.vs` 추가
+  - `defer_light.vs`와 동일
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+out vec2 texCoord;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  texCoord = aTexCoord;
+}
+```
+
+---
+
+## SSAO
+
+- `shader/ssao.fs` 추가
+  - 임시로 view space 상의 x값을 출력
+
+```glsl
+#version 330 core
+
+out float fragColor;
+
+in vec2 texCoord;
+
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+
+uniform mat4 view;
+
+void main() {
+  vec4 worldPos = texture(gPosition, texCoord);
+  if (worldPos.w <= 0.0f)
+    discard;
+  fragColor = (view * vec4(worldPos.xyz, 1.0)).x * 0.1 + 0.5;
+}
+```
+
+---
+
+## SSAO
+
+- `Context` 클래스에 SSAO 구현을 위한 멤버 변수들 추가
+
+```cpp
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;  // for test rendering
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 프로그램 초기화 및 테스트 모델 로딩
+
+```cpp
+  m_ssaoProgram = Program::Create("./shader/ssao.vs", "./shader/ssao.fs");
+  m_model = Model::Load("./model/backpack.obj");
+```
+
+---
+
+## SSAO
+
+- `Context::Reshape()`에서 SSAO framebuffer 초기화
+  - 단일 채널값 저장을 위해 `GL_RED` 사용
+
+```cpp
+  m_ssaoFramebuffer = Framebuffer::Create({
+    Texture::Create(width, height, GL_RED),
+  });
+```
+
+---
+
+## SSAO
+
+- `Context::DrawScene()`에 테스트 모델 렌더링 코드 추가
+
+```cpp
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.55f, 0.0f)) *
+    glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+    glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
+  transform = projection * view * modelTransform;
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
+  m_model->Draw(program);
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`에 렌더링 코드 추가
+  - Deferred shading의 geometry pass가 끝난 다음 부분에 추가
+
+```cpp
+  m_ssaoFramebuffer->Bind();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, m_width, m_height);
+  m_ssaoProgram->Use();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  m_ssaoProgram->SetUniform("gPosition", 0);
+  m_ssaoProgram->SetUniform("gNormal", 1);
+  m_ssaoProgram->SetUniform("transform",
+      glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_ssaoProgram->SetUniform("view", view);
+  m_plane->Draw(m_ssaoProgram.get());
+```
+
+---
+
+## SSAO
+
+- 그려진 SSAO를 확인하기 위한 ImGui 윈도우 추가
+
+```cpp
+  if (ImGui::Begin("SSAO")) {
+    float width = ImGui::GetContentRegionAvailWidth();
+    float height = width * ((float)m_height / (float)m_width);
+    ImGui::Image((ImTextureID)m_ssaoFramebuffer->GetColorAttachment()->Get(),
+      ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+  }
+  ImGui::End();
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - `fragColor`에 다양한 값들을 넣어보면서 SSAO 윈도우에 나타나는 결과를 확인해보자
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_prepare_result.png" width="65%"/>
+</div>
+
+---
 - idea
 - sample buffer
 - normal-oriented hemisphere
