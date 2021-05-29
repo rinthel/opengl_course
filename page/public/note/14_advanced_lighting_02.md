@@ -1525,5 +1525,153 @@ uniform vec3 samples[KERNEL_SIZE];
 
 ---
 
+## SSAO
+
+- `shader/blur_5x5.vs` 추가
+  - `shader/ssao.vs`와 동일
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+out vec2 texCoord;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  texCoord = aTexCoord;
+}
+```
+
+---
+
+## SSAO
+
+- `shader/blur_5x5.fs` 추가
+
+```glsl
+#version 330 core
+
+out vec4 fragColor;
+in vec2 texCoord;
+uniform sampler2D tex;
+
+void main() {
+  vec2 texelSize = 1.0 / vec2(textureSize(tex, 0));
+  vec4 result = vec4(0.0);
+  for (int x = -2; x <= 2; ++x) {
+    for (int y = -2; y <= 2; ++y) {
+      vec2 offset = vec2(float(x), float(y)) * texelSize;
+      result += texture(tex, texCoord + offset);
+    }
+  }
+  fragColor = result / 25.0;
+}
+```
+
+---
+
+## SSAO
+
+- `Context` 클래스에 blurring을 위한 프로그램 및 프레임버퍼 멤버 추가
+
+```cpp [9-10]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+  std::vector<glm::vec3> m_ssaoSamples;
+  float m_ssaoRadius { 1.0f };
+
+  ProgramUPtr m_blurProgram;
+  FramebufferUPtr m_ssaoBlurFramebuffer;
+```
+
+---
+
+## SSAO
+
+- `Context::Reshape()`에서 프레임버퍼 초기화
+
+```cpp [5-7]
+  m_ssaoFramebuffer = Framebuffer::Create({
+    Texture::Create(width, height, GL_RED),
+  });
+
+  m_ssaoBlurFramebuffer = Framebuffer::Create({
+    Texture::Create(width, height, GL_RED),
+  });
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 프로그램 초기화
+
+```cpp [2-3]
+  m_ssaoProgram = Program::Create("./shader/ssao.vs", "./shader/ssao.fs");
+  m_blurProgram = Program::Create(
+    "./shader/blur_5x5.vs", "./shader/blur_5x5.fs");
+  m_model = Model::Load("./model/backpack.obj");
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`에서 blur 프로그램을 이용하여 SSAO 텍스처 렌더링
+  - SSAO 렌더링 이후에 blurring
+
+```cpp
+  m_ssaoBlurFramebuffer->Bind();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, m_width, m_height);
+  m_blurProgram->Use();
+  m_ssaoFramebuffer->GetColorAttachment(0)->Bind();
+  m_blurProgram->SetUniform("tex", 0);
+  m_blurProgram->SetUniform("transform",
+    glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_plane->Draw(m_blurProgram.get());
+```
+
+---
+
+## SSAO
+
+- blurring 결과 비교를 위해 ImGui 코드 수정
+
+```cpp
+  if (ImGui::Begin("SSAO")) {
+    const char* bufferNames[] = { "original", "blurred" };
+    static int bufferSelect = 0;
+    ImGui::Combo("buffer", &bufferSelect, bufferNames, 2);
+
+    float width = ImGui::GetContentRegionAvailWidth();
+    float height = width * ((float)m_height / (float)m_width);
+    auto selectedAttachment =
+      bufferSelect == 0 ?
+      m_ssaoFramebuffer->GetColorAttachment() :
+      m_ssaoBlurFramebuffer->GetColorAttachment();
+
+    ImGui::Image((ImTextureID)selectedAttachment->Get(),
+      ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+  }
+  ImGui::End();
+```
+
+---
+
+## SSAO
+
+- 빌드 및 실행
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_result_blurred.png" width="80%"/>
+</div>
+---
+
 ## Congratulation!
 ### 수고하셨습니다!
