@@ -113,7 +113,8 @@ private:
     ProgramUPtr m_ssaoProgram;
     ModelUPtr m_model;
     TextureUPtr m_ssaoNoiseTexture;
-    // std::vector<glm::vec3> m_ssaoKernel;
+    std::vector<glm::vec3> m_ssaoSamples;
+    float m_ssaoRadius { 1.0f };
 };
 
 #endif // __CONTEXT_H__

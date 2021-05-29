@@ -1399,12 +1399,129 @@ void main() {
 
 ---
 
-- idea
-- sample buffer
-- normal-oriented hemisphere
-- random kernel rotation
-- SSAO shader
-- ambient occulsion blur
+## SSAO
+
+- `shader/ssao.fs` 수정
+  - Screen-space 좌표를 위한 `projection` 행렬 유니폼
+  - 차폐 조사를 위한 반구의 `radius` 유니폼
+  - 랜덤 샘플을 위한 유니폼
+
+```glsl [2, 5, 7-9]
+uniform mat4 view;
+uniform mat4 projection;
+
+uniform vec2 noiseScale;
+uniform float radius;
+
+const int KERNEL_SIZE = 64;
+const float BIAS = 0.025;
+uniform vec3 samples[KERNEL_SIZE];
+```
+
+---
+
+## SSAO
+
+- `shader/ssao.fs` 수정
+
+```glsl []
+  float occlusion = 0.0;
+  for (int i = 0; i < KERNEL_SIZE; i++) {
+    vec3 sample = fragPos + TBN * samples[i] * radius;
+    vec4 screenSample = projection * vec4(sample, 1.0);
+    screenSample.xyz /= screenSample.w;
+    screenSample.xyz = screenSample.xyz * 0.5 + 0.5;
+
+    float sampleDepth = (view * texture(gPosition, screenSample.xy)).z;
+    float rangeCheck = smoothstep(0.0, 1.0,
+      radius / abs(fragPos.z - sampleDepth));
+    occlusion += (sampleDepth >= sample.z + BIAS ? 1.0 : 0.0) * rangeCheck;
+  }
+```
+
+---
+
+## SSAO
+
+- Shader 코드 설명
+  - samples 벡터를 랜덤하게 회전된 TBN 행렬 및 현재 픽셀의 3D 위치를 기준으로 변환
+  - 해당 sample의 screen 상에서의 xy값을 계산
+  - 해당 xy값을 바탕으로 그 위치에 이미 그려진 픽셀의 depth값을 계산
+    - 이미 그려진 depth값이 샘플 위치의 depth값보다 크다면 차폐가 발생한 것
+  - 설정한 radius보다 멀리 떨어진 샘플이면 영향을 덜 받도록 함
+
+---
+
+## SSAO
+
+- `Context` 클래스에 random sample을 저장할 멤버 변수를 추가
+
+```cpp [6-7]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+  std::vector<glm::vec3> m_ssaoSamples;
+  float m_ssaoRadius { 1.0f };
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 random sample 초기화
+
+```cpp
+  m_ssaoSamples.resize(64);
+  for (size_t i = 0; i < m_ssaoSamples.size(); i++) {
+    // uniformly randomized point in unit hemisphere
+    glm::vec3 sample(
+        RandomRange(-1.0f, 1.0f),
+        RandomRange(-1.0f, 1.0f),
+        RandomRange(0.0f, 1.0f));
+    sample = glm::normalize(sample) * RandomRange();
+
+    // scale for slightly shift to center
+    float t = (float)i / (float)m_ssaoSamples.size();
+    float t2 = t * t;
+    float scale = (1.0f - t2) * 0.1f + t2 * 1.0f;
+
+    m_ssaoSamples[i] = sample * scale;
+  }
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`의 렌더링 코드에서 유니폼 설정 코드 추가
+
+```cpp [4-8, 12]
+  m_ssaoProgram->SetUniform("noiseScale", glm::vec2(
+    (float)m_width / (float)m_ssaoNoiseTexture->GetWidth(),
+    (float)m_height / (float)m_ssaoNoiseTexture->GetHeight()));
+  m_ssaoProgram->SetUniform("radius", m_ssaoRadius);
+  for (size_t i = 0; i < m_ssaoSamples.size(); i++) {
+    auto sampleName = fmt::format("samples[{}]", i);
+    m_ssaoProgram->SetUniform(sampleName, m_ssaoSamples[i]);
+  }
+  m_ssaoProgram->SetUniform("transform",
+      glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_ssaoProgram->SetUniform("view", view);
+  m_ssaoProgram->SetUniform("projection", projection);
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - 주변 차폐가 많을수록 어두워지는 AO map을 실시간 생성
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_result.png" width="70%"/>
+</div>
 
 ---
 
