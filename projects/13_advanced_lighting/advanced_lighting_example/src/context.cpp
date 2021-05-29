@@ -99,6 +99,7 @@ void Context::Render() {
             ImGui::ColorEdit3("l.specular", glm::value_ptr(m_light.specular));
             ImGui::Checkbox("l.blinn", &m_blinn);
         }
+        ImGui::Checkbox("use ssao", &m_useSsao);
         ImGui::DragFloat("ssao radius", &m_ssaoRadius, 0.01f, 0.0f, 5.0f);
 
         ImGui::Checkbox("animation", &m_animation);
@@ -235,10 +236,14 @@ void Context::Render() {
     m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
     glActiveTexture(GL_TEXTURE2);
     m_deferGeoFramebuffer->GetColorAttachment(2)->Bind();
+    glActiveTexture(GL_TEXTURE3);
+    m_ssaoBlurFramebuffer->GetColorAttachment()->Bind();
     glActiveTexture(GL_TEXTURE0);
     m_deferLightProgram->SetUniform("gPosition", 0);
     m_deferLightProgram->SetUniform("gNormal", 1);
     m_deferLightProgram->SetUniform("gAlbedoSpec", 2);
+    m_deferLightProgram->SetUniform("ssao", 3);
+    m_deferLightProgram->SetUniform("useSsao", m_useSsao ? 1 : 0);
     for (size_t i = 0; i < m_deferLights.size(); i++) {
         auto posName = fmt::format("lights[{}].position", i);
         auto colorName = fmt::format("lights[{}].color", i);
@@ -516,9 +521,9 @@ bool Context::Init() {
             RandomRange(1.0f, 4.0f),
             RandomRange(-10.0f, 10.0f));
         m_deferLights[i].color = glm::vec3(
-            RandomRange(0.05f, 0.3f),
-            RandomRange(0.05f, 0.3f),
-            RandomRange(0.05f, 0.3f));
+            RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+            RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+            RandomRange(0.0f, i < 3 ? 1.0f : 0.0f));
     }
 
     m_ssaoSamples.resize(64);

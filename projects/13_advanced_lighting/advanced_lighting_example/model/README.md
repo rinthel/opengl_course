@@ -1,0 +1,1 @@
+copy and paste contents in the `projects/10_object/object_example/model` directory to here

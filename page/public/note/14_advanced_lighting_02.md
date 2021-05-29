@@ -1671,6 +1671,116 @@ void main() {
 <div>
 <img src="/opengl_course/note/images/14_ssao_result_blurred.png" width="80%"/>
 </div>
+
+---
+
+## SSAO
+
+- `shader/defer_light.fs` 수정
+
+```glsl [4-5]
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D gAlbedoSpec;
+uniform sampler2D ssao;
+uniform int useSsao;
+```
+
+```glsl []
+  vec3 ambient = useSsao == 1 ?
+    texture(ssao, texCoord).r * 0.4 * albedo :
+    albedo * 0.4; // hard-coded ambient component
+  vec3 lighting = ambient; 
+```
+
+---
+
+## SSAO
+
+- `Context` 클래스에 SSAO 사용 여부 체크를 위한 멤버 추가
+
+```cpp [11]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+  std::vector<glm::vec3> m_ssaoSamples;
+  float m_ssaoRadius { 1.0f };
+
+  ProgramUPtr m_blurProgram;
+  FramebufferUPtr m_ssaoBlurFramebuffer;
+  bool m_useSsao { true };
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 deferred shading을 위한 light 설정 변경
+  - 명확한 결과 확인을 위해 3개의 light만 사용
+
+```cpp [7-9]
+  for (size_t i = 0; i < m_deferLights.size(); i++) {
+    m_deferLights[i].position = glm::vec3(
+      RandomRange(-10.0f, 10.0f),
+      RandomRange(1.0f, 4.0f),
+      RandomRange(-10.0f, 10.0f));
+    m_deferLights[i].color = glm::vec3(
+      RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+      RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+      RandomRange(0.0f, i < 3 ? 1.0f : 0.0f));
+  }
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`의 deferred shading 렌더링 코드 변경
+
+```cpp [8-9, 14-15]
+  m_deferLightProgram->Use();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_deferGeoFramebuffer->GetColorAttachment(2)->Bind();
+  glActiveTexture(GL_TEXTURE3);
+  m_ssaoBlurFramebuffer->GetColorAttachment()->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferLightProgram->SetUniform("gPosition", 0);
+  m_deferLightProgram->SetUniform("gNormal", 1);
+  m_deferLightProgram->SetUniform("gAlbedoSpec", 2);
+  m_deferLightProgram->SetUniform("ssao", 3);
+  m_deferLightProgram->SetUniform("useSsao", m_useSsao ? 1 : 0);
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - 주변이 막혀있는 부분에 약간의 그림자가 생성되는 것을 확인
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_result_with_deferred_shading.png" width="70%"/>
+</div>
+
+---
+
+## SSAO
+
+- Additional note
+  - 장면에 따라서 sample의 개수, radius 크기를 조율할 필요가 있음
+  - 최종 occlusion 값에 지수함수를 사용하여 조절하는 방법
+
+```glsl
+occlusion = 1.0 - (occlusion / kernelSize);
+fragColor = pow(occlusion, power);
+```
+
 ---
 
 ## Congratulation!
