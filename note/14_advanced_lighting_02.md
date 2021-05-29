@@ -239,7 +239,7 @@ void main() {
 ## Bloom
 
 - Separate Gaussian blur
-  - Tow-pass Gaussian blur
+  - Two-pass Gaussian blur
   - 커널의 형태가 대칭형일 경우 x축 / y축으로 나눠서 처리할 수 있음
   - k^2 번의 연산이 2k 번으로 감소
 
@@ -633,6 +633,7 @@ void main() {
 
 ```cpp
   m_deferGeoFramebuffer->Bind();
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glViewport(0, 0, m_width, m_height);
   m_deferGeoProgram->Use();
@@ -640,6 +641,7 @@ void main() {
 
   Framebuffer::BindToDefault();
   glViewport(0, 0, m_width, m_height);
+  glClearColor(m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a);
 ```
 
 ---
@@ -979,7 +981,7 @@ float RandomRange(float minValue, float maxValue) {
 
 - Ambient light의 개념
   - scene에 포함된 모든 빛들이 object에 부딪혀 발생된 산란을 시뮬레이션하는 것
-  - 고정된 값으로 통일된 ambient light는 현실적이지 않음
+  - 일정한 값으로 고정된 ambient light는 현실적이지 않음
 
 ---
 
@@ -1082,12 +1084,702 @@ float RandomRange(float minValue, float maxValue) {
 
 ---
 
-- idea
-- sample buffer
-- normal-oriented hemisphere
-- random kernel rotation
-- SSAO shader
-- ambient occulsion blur
+## SSAO
+
+- `Texture::SetTextureFormat()` 함수 수정
+
+```cpp [6-15]
+  else if (m_format == GL_RGB ||
+    m_format == GL_RGB16F ||
+    m_format == GL_RGB32F) {
+    imageFormat = GL_RGB;
+  }
+  else if (m_format == GL_RG ||
+    m_format == GL_RG16F ||
+    m_format == GL_RG32F) {
+    imageFormat = GL_RG;
+  }
+  else if (m_format == GL_RED ||
+    m_format == GL_R ||
+    m_format == GL_R16F ||
+    m_format == GL_R32F) {
+    imageFormat = GL_RED;
+  }
+```
+
+---
+
+## SSAO
+
+- `shader/ssao.vs` 추가
+  - `defer_light.vs`와 동일
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+out vec2 texCoord;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  texCoord = aTexCoord;
+}
+```
+
+---
+
+## SSAO
+
+- `shader/ssao.fs` 추가
+  - 임시로 view space 상의 x값을 출력
+
+```glsl
+#version 330 core
+
+out float fragColor;
+
+in vec2 texCoord;
+
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+
+uniform mat4 view;
+
+void main() {
+  vec4 worldPos = texture(gPosition, texCoord);
+  if (worldPos.w <= 0.0f)
+    discard;
+  fragColor = (view * vec4(worldPos.xyz, 1.0)).x * 0.1 + 0.5;
+}
+```
+
+---
+
+## SSAO
+
+- `Context` 클래스에 SSAO 구현을 위한 멤버 변수들 추가
+
+```cpp
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;  // for test rendering
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 프로그램 초기화 및 테스트 모델 로딩
+
+```cpp
+  m_ssaoProgram = Program::Create("./shader/ssao.vs", "./shader/ssao.fs");
+  m_model = Model::Load("./model/backpack.obj");
+```
+
+---
+
+## SSAO
+
+- `Context::Reshape()`에서 SSAO framebuffer 초기화
+  - 단일 채널값 저장을 위해 `GL_RED` 사용
+
+```cpp
+  m_ssaoFramebuffer = Framebuffer::Create({
+    Texture::Create(width, height, GL_RED),
+  });
+```
+
+---
+
+## SSAO
+
+- `Context::DrawScene()`에 테스트 모델 렌더링 코드 추가
+
+```cpp
+  modelTransform =
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.55f, 0.0f)) *
+    glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f)) *
+    glm::scale(glm::mat4(1.0f), glm::vec3(0.5f, 0.5f, 0.5f));
+  transform = projection * view * modelTransform;
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
+  m_model->Draw(program);
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`에 렌더링 코드 추가
+  - Deferred shading의 geometry pass가 끝난 다음 부분에 추가
+
+```cpp
+  m_ssaoFramebuffer->Bind();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, m_width, m_height);
+  m_ssaoProgram->Use();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  m_ssaoProgram->SetUniform("gPosition", 0);
+  m_ssaoProgram->SetUniform("gNormal", 1);
+  m_ssaoProgram->SetUniform("transform",
+      glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_ssaoProgram->SetUniform("view", view);
+  m_plane->Draw(m_ssaoProgram.get());
+```
+
+---
+
+## SSAO
+
+- 그려진 SSAO를 확인하기 위한 ImGui 윈도우 추가
+
+```cpp
+  if (ImGui::Begin("SSAO")) {
+    float width = ImGui::GetContentRegionAvailWidth();
+    float height = width * ((float)m_height / (float)m_width);
+    ImGui::Image((ImTextureID)m_ssaoFramebuffer->GetColorAttachment()->Get(),
+      ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+  }
+  ImGui::End();
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - `fragColor`에 다양한 값들을 넣어보면서 SSAO 윈도우에 나타나는 결과를 확인해보자
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_prepare_result.png" width="65%"/>
+</div>
+
+---
+
+## SSAO
+
+- SSAO에서 사용할 random rotation vector를 텍스처로 만들어 넣자
+
+```cpp [5]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 random rotation vector 초기화
+
+```cpp
+  std::vector<glm::vec3> ssaoNoise;
+  ssaoNoise.resize(16);
+  for (size_t i = 0; i < ssaoNoise.size(); i++) {
+    // randomly selected tangent direction
+    glm::vec3 sample(RandomRange(-1.0f, 1.0f),
+      RandomRange(-1.0f, 1.0f), 0.0f);
+    ssaoNoise[i] = sample;
+  }
+
+  m_ssaoNoiseTexture = Texture::Create(4, 4, GL_RGB16F, GL_FLOAT);
+  m_ssaoNoiseTexture->Bind();
+  m_ssaoNoiseTexture->SetFilter(GL_NEAREST, GL_NEAREST);
+  m_ssaoNoiseTexture->SetWrap(GL_REPEAT, GL_REPEAT);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4,
+    GL_RGB, GL_FLOAT, ssaoNoise.data());
+```
+
+---
+
+## SSAO
+
+- Random rotation vector
+  - 정확히는 회전 값이 아닌 임의의 tangent vector 방향
+    - normal 방향이 z방향에 가까우므로 xy축 값만 생성
+  - 4x4 패치 형태의 렌덤값
+  - 이미지 전체에 타일링하여 반복적으로 사용
+
+---
+
+## SSAO
+
+- `shader/ssao.fs` 수정
+
+```glsl [9, 13, 19-27]
+#version 330 core
+
+out float fragColor;
+
+in vec2 texCoord;
+
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D texNoise;
+
+uniform mat4 view;
+
+uniform vec2 noiseScale;
+
+void main() {
+  vec4 worldPos = texture(gPosition, texCoord);
+  if (worldPos.w <= 0.0f)
+      discard;
+  vec3 fragPos = (view * vec4(worldPos.xyz, 1.0)).xyz;
+  vec3 normal = (view * vec4(texture(gNormal, texCoord).xyz, 0.0)).xyz;
+  vec3 randomVec = texture(texNoise, texCoord * noiseScale).xyz;
+
+  vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+  vec3 bitangent = cross(normal, tangent);
+  mat3 TBN = mat3(tangent, bitangent, normal);
+
+  fragColor = tangent.x;
+}
+```
+
+---
+
+## SSAO
+
+- Shader 코드 설명
+  - `texNoise`로부터 random rotation vector 가져오기
+  - Gram-Schmidt 방법을 통해 normal 방향과 수직인 tangent 계산
+  - 적절히 회전된 tangent space matrix 생성
+    - 이후 이 TBN 행렬을 기준으로 random sample에 대한 차폐 여부를 조사
+
+---
+
+## SSAO
+
+- `Context::Render()` 함수에서 SSAO 렌더링 부분에 uniform 설정 추가
+
+```cpp [9-10, 14-17]
+  m_ssaoFramebuffer->Bind();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, m_width, m_height);
+  m_ssaoProgram->Use();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_ssaoNoiseTexture->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  m_ssaoProgram->SetUniform("gPosition", 0);
+  m_ssaoProgram->SetUniform("gNormal", 1);
+  m_ssaoProgram->SetUniform("texNoise", 2);
+  m_ssaoProgram->SetUniform("noiseScale", glm::vec2(
+    (float)m_width / (float)m_ssaoNoiseTexture->GetWidth(),
+    (float)m_height / (float)m_ssaoNoiseTexture->GetHeight()));
+  m_ssaoProgram->SetUniform("transform",
+      glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_ssaoProgram->SetUniform("view", view);
+  m_plane->Draw(m_ssaoProgram.get());
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - tangent의 x값이 특정한 패턴으로 렌더링
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_random_tangent.png" width="70%"/>
+</div>
+
+---
+
+## SSAO
+
+- `shader/ssao.fs` 수정
+  - Screen-space 좌표를 위한 `projection` 행렬 유니폼
+  - 차폐 조사를 위한 반구의 `radius` 유니폼
+  - 랜덤 샘플을 위한 유니폼
+
+```glsl [2, 5, 7-9]
+uniform mat4 view;
+uniform mat4 projection;
+
+uniform vec2 noiseScale;
+uniform float radius;
+
+const int KERNEL_SIZE = 64;
+const float BIAS = 0.025;
+uniform vec3 samples[KERNEL_SIZE];
+```
+
+---
+
+## SSAO
+
+- `shader/ssao.fs` 수정
+
+```glsl []
+  float occlusion = 0.0;
+  for (int i = 0; i < KERNEL_SIZE; i++) {
+    vec3 sample = fragPos + TBN * samples[i] * radius;
+    vec4 screenSample = projection * vec4(sample, 1.0);
+    screenSample.xyz /= screenSample.w;
+    screenSample.xyz = screenSample.xyz * 0.5 + 0.5;
+
+    float sampleDepth = (view * texture(gPosition, screenSample.xy)).z;
+    float rangeCheck = smoothstep(0.0, 1.0,
+      radius / abs(fragPos.z - sampleDepth));
+    occlusion += (sampleDepth >= sample.z + BIAS ? 1.0 : 0.0) * rangeCheck;
+  }
+```
+
+---
+
+## SSAO
+
+- Shader 코드 설명
+  - samples 벡터를 랜덤하게 회전된 TBN 행렬 및 현재 픽셀의 3D 위치를 기준으로 변환
+  - 해당 sample의 screen 상에서의 xy값을 계산
+  - 해당 xy값을 바탕으로 그 위치에 이미 그려진 픽셀의 depth값을 계산
+    - 이미 그려진 depth값이 샘플 위치의 depth값보다 크다면 차폐가 발생한 것
+  - 설정한 radius보다 멀리 떨어진 샘플이면 영향을 덜 받도록 함
+
+---
+
+## SSAO
+
+- `Context` 클래스에 random sample을 저장할 멤버 변수를 추가
+
+```cpp [6-7]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+  std::vector<glm::vec3> m_ssaoSamples;
+  float m_ssaoRadius { 1.0f };
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 random sample 초기화
+
+```cpp
+  m_ssaoSamples.resize(64);
+  for (size_t i = 0; i < m_ssaoSamples.size(); i++) {
+    // uniformly randomized point in unit hemisphere
+    glm::vec3 sample(
+        RandomRange(-1.0f, 1.0f),
+        RandomRange(-1.0f, 1.0f),
+        RandomRange(0.0f, 1.0f));
+    sample = glm::normalize(sample) * RandomRange();
+
+    // scale for slightly shift to center
+    float t = (float)i / (float)m_ssaoSamples.size();
+    float t2 = t * t;
+    float scale = (1.0f - t2) * 0.1f + t2 * 1.0f;
+
+    m_ssaoSamples[i] = sample * scale;
+  }
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`의 렌더링 코드에서 유니폼 설정 코드 추가
+
+```cpp [4-8, 12]
+  m_ssaoProgram->SetUniform("noiseScale", glm::vec2(
+    (float)m_width / (float)m_ssaoNoiseTexture->GetWidth(),
+    (float)m_height / (float)m_ssaoNoiseTexture->GetHeight()));
+  m_ssaoProgram->SetUniform("radius", m_ssaoRadius);
+  for (size_t i = 0; i < m_ssaoSamples.size(); i++) {
+    auto sampleName = fmt::format("samples[{}]", i);
+    m_ssaoProgram->SetUniform(sampleName, m_ssaoSamples[i]);
+  }
+  m_ssaoProgram->SetUniform("transform",
+      glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_ssaoProgram->SetUniform("view", view);
+  m_ssaoProgram->SetUniform("projection", projection);
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - 주변 차폐가 많을수록 어두워지는 AO map을 실시간 생성
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_result.png" width="70%"/>
+</div>
+
+---
+
+## SSAO
+
+- `shader/blur_5x5.vs` 추가
+  - `shader/ssao.vs`와 동일
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+out vec2 texCoord;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  texCoord = aTexCoord;
+}
+```
+
+---
+
+## SSAO
+
+- `shader/blur_5x5.fs` 추가
+
+```glsl
+#version 330 core
+
+out vec4 fragColor;
+in vec2 texCoord;
+uniform sampler2D tex;
+
+void main() {
+  vec2 texelSize = 1.0 / vec2(textureSize(tex, 0));
+  vec4 result = vec4(0.0);
+  for (int x = -2; x <= 2; ++x) {
+    for (int y = -2; y <= 2; ++y) {
+      vec2 offset = vec2(float(x), float(y)) * texelSize;
+      result += texture(tex, texCoord + offset);
+    }
+  }
+  fragColor = result / 25.0;
+}
+```
+
+---
+
+## SSAO
+
+- `Context` 클래스에 blurring을 위한 프로그램 및 프레임버퍼 멤버 추가
+
+```cpp [9-10]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+  std::vector<glm::vec3> m_ssaoSamples;
+  float m_ssaoRadius { 1.0f };
+
+  ProgramUPtr m_blurProgram;
+  FramebufferUPtr m_ssaoBlurFramebuffer;
+```
+
+---
+
+## SSAO
+
+- `Context::Reshape()`에서 프레임버퍼 초기화
+
+```cpp [5-7]
+  m_ssaoFramebuffer = Framebuffer::Create({
+    Texture::Create(width, height, GL_RED),
+  });
+
+  m_ssaoBlurFramebuffer = Framebuffer::Create({
+    Texture::Create(width, height, GL_RED),
+  });
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 프로그램 초기화
+
+```cpp [2-3]
+  m_ssaoProgram = Program::Create("./shader/ssao.vs", "./shader/ssao.fs");
+  m_blurProgram = Program::Create(
+    "./shader/blur_5x5.vs", "./shader/blur_5x5.fs");
+  m_model = Model::Load("./model/backpack.obj");
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`에서 blur 프로그램을 이용하여 SSAO 텍스처 렌더링
+  - SSAO 렌더링 이후에 blurring
+
+```cpp
+  m_ssaoBlurFramebuffer->Bind();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glViewport(0, 0, m_width, m_height);
+  m_blurProgram->Use();
+  m_ssaoFramebuffer->GetColorAttachment(0)->Bind();
+  m_blurProgram->SetUniform("tex", 0);
+  m_blurProgram->SetUniform("transform",
+    glm::scale(glm::mat4(1.0f), glm::vec3(2.0f)));
+  m_plane->Draw(m_blurProgram.get());
+```
+
+---
+
+## SSAO
+
+- blurring 결과 비교를 위해 ImGui 코드 수정
+
+```cpp
+  if (ImGui::Begin("SSAO")) {
+    const char* bufferNames[] = { "original", "blurred" };
+    static int bufferSelect = 0;
+    ImGui::Combo("buffer", &bufferSelect, bufferNames, 2);
+
+    float width = ImGui::GetContentRegionAvailWidth();
+    float height = width * ((float)m_height / (float)m_width);
+    auto selectedAttachment =
+      bufferSelect == 0 ?
+      m_ssaoFramebuffer->GetColorAttachment() :
+      m_ssaoBlurFramebuffer->GetColorAttachment();
+
+    ImGui::Image((ImTextureID)selectedAttachment->Get(),
+      ImVec2(width, height), ImVec2(0, 1), ImVec2(1, 0));
+  }
+  ImGui::End();
+```
+
+---
+
+## SSAO
+
+- 빌드 및 실행
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_result_blurred.png" width="80%"/>
+</div>
+
+---
+
+## SSAO
+
+- `shader/defer_light.fs` 수정
+
+```glsl [4-5]
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D gAlbedoSpec;
+uniform sampler2D ssao;
+uniform int useSsao;
+```
+
+```glsl []
+  vec3 ambient = useSsao == 1 ?
+    texture(ssao, texCoord).r * 0.4 * albedo :
+    albedo * 0.4; // hard-coded ambient component
+  vec3 lighting = ambient; 
+```
+
+---
+
+## SSAO
+
+- `Context` 클래스에 SSAO 사용 여부 체크를 위한 멤버 추가
+
+```cpp [11]
+  // ssao
+  FramebufferUPtr m_ssaoFramebuffer;
+  ProgramUPtr m_ssaoProgram;
+  ModelUPtr m_model;
+  TextureUPtr m_ssaoNoiseTexture;
+  std::vector<glm::vec3> m_ssaoSamples;
+  float m_ssaoRadius { 1.0f };
+
+  ProgramUPtr m_blurProgram;
+  FramebufferUPtr m_ssaoBlurFramebuffer;
+  bool m_useSsao { true };
+```
+
+---
+
+## SSAO
+
+- `Context::Init()`에서 deferred shading을 위한 light 설정 변경
+  - 명확한 결과 확인을 위해 3개의 light만 사용
+
+```cpp [7-9]
+  for (size_t i = 0; i < m_deferLights.size(); i++) {
+    m_deferLights[i].position = glm::vec3(
+      RandomRange(-10.0f, 10.0f),
+      RandomRange(1.0f, 4.0f),
+      RandomRange(-10.0f, 10.0f));
+    m_deferLights[i].color = glm::vec3(
+      RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+      RandomRange(0.0f, i < 3 ? 1.0f : 0.0f),
+      RandomRange(0.0f, i < 3 ? 1.0f : 0.0f));
+  }
+```
+
+---
+
+## SSAO
+
+- `Context::Render()`의 deferred shading 렌더링 코드 변경
+
+```cpp [8-9, 14-15]
+  m_deferLightProgram->Use();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferGeoFramebuffer->GetColorAttachment(0)->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_deferGeoFramebuffer->GetColorAttachment(1)->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_deferGeoFramebuffer->GetColorAttachment(2)->Bind();
+  glActiveTexture(GL_TEXTURE3);
+  m_ssaoBlurFramebuffer->GetColorAttachment()->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  m_deferLightProgram->SetUniform("gPosition", 0);
+  m_deferLightProgram->SetUniform("gNormal", 1);
+  m_deferLightProgram->SetUniform("gAlbedoSpec", 2);
+  m_deferLightProgram->SetUniform("ssao", 3);
+  m_deferLightProgram->SetUniform("useSsao", m_useSsao ? 1 : 0);
+```
+
+---
+
+## SSAO
+
+- 빌드 및 결과
+  - 주변이 막혀있는 부분에 약간의 그림자가 생성되는 것을 확인
+
+<div>
+<img src="/opengl_course/note/images/14_ssao_result_with_deferred_shading.png" width="70%"/>
+</div>
+
+---
+
+## SSAO
+
+- Additional note
+  - 장면에 따라서 sample의 개수, radius 크기를 조율할 필요가 있음
+  - 최종 occlusion 값에 지수함수를 사용하여 조절하는 방법
+
+```glsl
+occlusion = 1.0 - (occlusion / kernelSize);
+fragColor = pow(occlusion, power);
+```
 
 ---
 
