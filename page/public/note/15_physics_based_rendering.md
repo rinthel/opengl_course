@@ -414,8 +414,178 @@ vec3 fresnelSchlick(float cosTheta, vec3 surfaceColor, float metalness) {
 
 ## Lighting
 
-- PBR surface model
-- Textured PBR
+- PBR 이론을 바탕으로 shading 해보기
+  - 점 광원이 하나 있는 경우
+    - **L**: light color
+    - 광원의 입사 벡터 **w**i
+    - 광원과 **p** 간의 거리에 의한 attenuation 및
+      dot(n, wi)으로 인한 조정
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_lighting_point_light.png" width="40%"/>
+</div>
+
+---
+
+## Lighting
+
+- PBR 이론을 바탕으로 shading 해보기
+  - 결국 점 광원에 대한 radiance 계산은 Phong의 diffuse 계산과 매우 유사하다
+  - 광원이 여러개 있는 경우
+    - 모든 radiance의 합산
+
+---
+
+## Lighting
+
+- 예제 준비
+  - `advanced_lighting_example` 프로젝트를 복사하여 `pbr_example` 프로젝트 구성
+
+---
+
+## Lighting
+
+- Context 코드 간소화
+
+```cpp
+CLASS_PTR(Context)
+class Context {
+public:
+  static ContextUPtr Create();
+  void Render();
+  void ProcessInput(GLFWwindow* window);
+  void Reshape(int width, int height);
+  void MouseMove(double x, double y);
+  void MouseButton(int button, int action, double x, double y);
+
+  void DrawScene(const glm::mat4& view,
+    const glm::mat4& projection,
+    const Program* program);
+
+private:
+  Context() {}
+  bool Init();
+  
+  ProgramUPtr m_simpleProgram;
+
+  MeshUPtr m_box;
+  MeshUPtr m_plane;
+
+  // screen size
+  int m_width {640};
+  int m_height {480};
+
+  // camera parameter
+  bool m_cameraControl { false };
+  glm::vec2 m_prevMousePos { glm::vec2(0.0f) };
+  float m_cameraPitch { 0.0f };
+  float m_cameraYaw { 0.0f };
+  glm::vec3 m_cameraFront { glm::vec3(0.0f, -1.0f, 0.0f) };
+  glm::vec3 m_cameraPos { glm::vec3(0.0f, 0.0f, 8.0f) };
+  glm::vec3 m_cameraUp { glm::vec3(0.0f, 1.0f, 0.0f) };
+};
+```
+
+---
+
+## Lighting
+
+- Context 코드 간소화
+
+```cpp
+void Context::Reshape(int width, int height) {
+  m_width = width;
+  m_height = height;
+  glViewport(0, 0, m_width, m_height);
+}
+```
+
+---
+
+## Lighting
+
+- Context 코드 간소화
+
+```cpp
+bool Context::Init() {
+  glEnable(GL_MULTISAMPLE);
+  glEnable(GL_DEPTH_TEST);
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+  m_box = Mesh::CreateBox();
+  m_plane = Mesh::CreatePlane();
+
+  m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
+  return true;
+}
+```
+
+---
+
+## Lighting
+
+- Context 코드 간소화
+
+```cpp
+void Context::Render() {
+  if (ImGui::Begin("ui window")) {
+    ImGui::DragFloat3("camera pos", glm::value_ptr(m_cameraPos), 0.01f);
+    ImGui::DragFloat("camera yaw", &m_cameraYaw, 0.5f);
+    ImGui::DragFloat("camera pitch", &m_cameraPitch, 0.5f, -89.0f, 89.0f);
+    ImGui::Separator();
+    if (ImGui::Button("reset camera")) {
+      m_cameraYaw = 0.0f;
+      m_cameraPitch = 0.0f;
+      m_cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+    }
+  }
+  ImGui::End();
+
+  m_cameraFront =
+    glm::rotate(glm::mat4(1.0f),
+      glm::radians(m_cameraYaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
+    glm::rotate(glm::mat4(1.0f),
+      glm::radians(m_cameraPitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
+    glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
+
+  auto projection = glm::perspective(glm::radians(45.0f),
+      (float)m_width / (float)m_height, 0.01f, 150.0f);
+  auto view = glm::lookAt(
+      m_cameraPos,
+      m_cameraPos + m_cameraFront,
+      m_cameraUp);
+
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_simpleProgram->Use();
+  m_simpleProgram->SetUniform("color", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
+  m_simpleProgram->SetUniform("transform", projection * view);
+  m_box->Draw(m_simpleProgram.get());
+}
+```
+
+---
+
+## Lighting
+
+- Context 코드 간소화
+
+```cpp
+void Context::DrawScene(const glm::mat4& view,
+  const glm::mat4& projection,
+  const Program* program) {
+  
+}
+```
+
+---
+
+## Lighting
+
+- 빌드 및 실행
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_example_setup.png" width="80%"/>
+</div>
 
 ---
 
@@ -440,7 +610,8 @@ vec3 fresnelSchlick(float cosTheta, vec3 surfaceColor, float metalness) {
 
 - [**lifeisforu**의 그냥 그런 블로그](https://lifeisforu.tistory.com/category/Physically%20Based%20Rendering)
   - 매우 좋은 PBR 관련 설명글 (한국어)
-
+- [Sampling the GGX Distribution of Visible Normals](http://jcgt.org/published/0007/04/01/paper.pdf)
+  - GGX의 뜻이 적혀있는 논문
 ---
 
 ## Congratulation!
