@@ -31,11 +31,25 @@ private:
     bool Init();
 
     ProgramUPtr m_simpleProgram;
-    // ProgramUPtr m_pbrProgram;
+    ProgramUPtr m_pbrProgram;
 
     MeshUPtr m_box;
     MeshUPtr m_plane;
     MeshUPtr m_sphere;
+
+    struct Light {
+        glm::vec3 position { glm::vec3(0.0f, 0.0f, 0.0f) };
+        glm::vec3 color { glm::vec3(1.0f, 1.0f, 1.0f) };
+    };
+    std::vector<Light> m_lights;
+
+    struct Material {
+        glm::vec3 albedo { glm::vec3(1.0f, 1.0f, 1.0f) };
+        float roughness { 0.5f };
+        float metallic { 0.5f };
+        float ao { 0.1f };
+    };
+    Material m_material;
 
     // screen size
     int m_width {640};

@@ -734,6 +734,15 @@ void Context::DrawScene(const glm::mat4& view,
 
 ---
 
+## Lighting
+
+- `shader/pbr.vs` 추가
+
+```glsl
+```
+
+---
+
 ## Diffuse Irradiance
 
 - PBR and HDR

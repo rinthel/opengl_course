@@ -97,9 +97,17 @@ void Context::Render() {
         m_cameraUp);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    m_simpleProgram->Use();
-    m_simpleProgram->SetUniform("color", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
-    DrawScene(view, projection, m_simpleProgram.get());
+    m_pbrProgram->Use();
+    m_pbrProgram->SetUniform("viewPos", m_cameraPos);
+    m_pbrProgram->SetUniform("material.albedo", m_material.albedo);
+    m_pbrProgram->SetUniform("material.ao", m_material.ao);
+    for (size_t i = 0; i < m_lights.size(); i++) {
+        auto posName = fmt::format("lights[{}].position", i);
+        auto colorName = fmt::format("lights[{}].color", i);
+        m_pbrProgram->SetUniform(posName, m_lights[i].position);
+        m_pbrProgram->SetUniform(colorName, m_lights[i].color);
+    }
+    DrawScene(view, projection, m_pbrProgram.get());
 }
 
 bool Context::Init() {
@@ -112,6 +120,20 @@ bool Context::Init() {
     m_sphere = Mesh::CreateSphere();
 
     m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
+    m_pbrProgram = Program::Create("./shader/pbr.vs", "./shader/pbr.fs");
+
+    m_lights.push_back({
+        glm::vec3(5.0f, 5.0f, 6.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+    });
+    m_lights.push_back({
+        glm::vec3(-4.0f, 5.0f, 7.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+    });
+    m_lights.push_back({
+        glm::vec3(-4.0f, -6.0f, 8.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+    });
+    m_lights.push_back({
+        glm::vec3(5.0f, -6.0f, 9.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+    });
     return true;
 }
 
@@ -132,6 +154,8 @@ void Context::DrawScene(const glm::mat4& view,
             auto transform = projection * view * modelTransform;
             program->SetUniform("transform", transform);
             program->SetUniform("modelTransform", modelTransform);
+            program->SetUniform("material.roughness", (float)i / (float)(sphereCount - 1));
+            program->SetUniform("material.metallic", (float)j / (float)(sphereCount - 1));
             m_sphere->Draw(program);
         }
     }
