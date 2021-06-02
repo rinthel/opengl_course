@@ -148,11 +148,30 @@ float kD = 1.0 - kS;
 - Reflected radiance **L**o
   - 특정 위치 p에 출사 방향 벡터 **ω**o로 나오는 빛의 에너지 크기
   - 반구 **Ω**로 들어오는 모든 영역에서 입사 방향 벡터 **ω**i에 대한
-    빛의 기여도에 따른 에너지의 합
+    빛 에너지의 가중치 합
 
 <div>
 <img src="/opengl_course/note/images/15_pbr_reflectance_equation.png" width="70%"/>
 </div>
+
+---
+
+## Reflectance equation
+
+- Reflectance equation implementation
+
+```glsl
+int steps = 100;
+float sum = 0.0f;
+vec3 P = ...;
+vec3 Wo = ...;
+vec3 N = ...;
+float dW = 1.0f / steps;
+for(int i = 0; i < steps; ++i) {
+  vec3 Wi = getNextIncomingLightDir(i);
+  sum += Fr(P, Wi, Wo) * L(P, Wi) * dot(N, Wi) * dW;
+}
+```
 
 ---
 
@@ -180,13 +199,216 @@ float kD = 1.0 - kS;
 
 ---
 
-## Theory
+## BRDF
 
-- microfacet model
-- energy conservation
-- reflectance equation
-- BRDF
-- Authring PBR materials
+- Refraction (diffuse) term
+  - Lambertian diffuse
+    - c: albedo (surface color)
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_brdf_lambertian_diffuse.png" width="25%"/>
+</div>
+
+---
+
+## BRDF
+
+- Reflection (specular) term
+  - D: normal distribution function
+  - G: geometry function
+  - F: Fresnel equation
+  - 다양한 approximation function이 있음
+  - 이 수업자료의 function: Unreal Engine 4에서 채택한 함수들
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_brdf_reflection.png" width="50%"/>
+</div>
+
+---
+
+## BRDF
+
+- D: Trowbridge-Reitz GGX
+  - 미세면이 halfway 벡터에 얼마나 정렬되어 있는지를 나타내는 분포함수
+    - **n**: normal vector
+    - **h**: halfway vector
+    - **α**: roughness
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_trowbridge_reitz_ggx.png" width="50%"/>
+</div>
+
+---
+
+## BRDF
+
+- D: Trowbridge-Reitz GGX
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_roughness.png" width="80%"/>
+</div>
+
+```glsl
+float DistributionGGX(vec3 N, vec3 H, float a) {
+  float a2 = a*a;
+  float NdotH = max(dot(N, H), 0.0);
+  float NdotH2 = NdotH*NdotH;
+
+  float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+  denom = PI * denom * denom;
+
+  return a2 / denom;
+}
+```
+
+---
+
+## BRDF
+
+- G: Schlick-GGX
+  - 미세면의 거친 정도에 따라 발생하는 self-shadow의 정도
+  - 빛의 방향 / 시선의 방향과도 연관이 있음
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_geometry_function.png" width="50%"/>
+</div>
+
+---
+
+## BRDF
+
+- G: Schlick-GGX
+  - **n**: normal
+  - **v**: view
+  - **k**
+    - Direct light: (**α** + 1)^2 / 8
+    - Image-based light: **α**^2 / 2
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_schlick_ggx.png" width="50%"/>
+</div>
+
+---
+
+## BRDF
+
+- G: Schlick-GGX
+  - Smith's method
+    - 빛의 방향 및 시선 방향 모두를 고려한 geometry function
+
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_geometry_smith.png" width="50%"/>
+</div>
+<div>
+<img src="/opengl_course/note/images/15_pbr_roughness_geometry.png" width="70%"/>
+</div>
+
+---
+
+## BRDF
+
+- G: Schlick-GGX
+
+```glsl
+float GeometrySchlickGGX(float NdotV, float k) {
+  float nom = NdotV;
+  float denom = NdotV * (1.0 - k) + k;
+  return nom / denom;
+}
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float k) {
+  float NdotV = max(dot(N, V), 0.0);
+  float NdotL = max(dot(N, L), 0.0);
+  float ggx1 = GeometrySchlickGGX(NdotV, k);
+  float ggx2 = GeometrySchlickGGX(NdotL, k);
+  return ggx1 * ggx2;
+}
+```
+
+---
+
+## BRDF
+
+- F: Fresnel equation
+  - 시점이 주어졌을 때 표면에서 반사된 빛과 굴절된 빛 간의 비율
+    - 모든 면은 수직하게 관측하면 빛을 모두 반사시킨다
+  - Fresnel-Schlick approximation
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_fresnel_schlick.png" width="60%"/>
+</div>
+
+---
+
+## BRDF
+
+- F: Fresnel equation
+  - F0: 면의 기본 반사율
+    - 재질에 따라 계산된 측정값 참고
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_fresnel_render.png" width="20%"/>
+</div>
+
+---
+
+## BRDF
+
+- F0 값 테이블
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_base_reflectivity_table.png" width="100%"/>
+</div>
+
+---
+
+## BRDF
+
+- Metallic workflow
+  - Metalness: 금속과 비금속의 정도를 0~1사이로 표현한 값
+    - 평균적인 비금속 물질의 F0값 0.04와 linear interpolation한 값을
+      공식에 적용
+
+```glsl
+vec3 fresnelSchlick(float cosTheta, vec3 surfaceColor, float metalness) {
+  vec3 F0 = vec3(0.04);
+  F0 = mix(F0, surfaceColor.rgb, metalness);
+  return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+```
+
+---
+
+## BRDF
+
+- Cook-Torrance reflectance equation
+  - Cook-Torrance BRDF가 적용된 반사율 방정식
+  - Fresnel 값이 **k**s를 포함하고 있어 식에서 제외
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_cook_torrance_reflectance_eq.png" width="80%"/>
+</div>
+
+---
+
+## Authoring PBR materials
+
+- PBR 재질의 파라미터
+  - Albedo: 면의 기본색상 (금속인 경우 F0값)
+  - Normal: 법선 방향
+  - Metalness: 금속성 / 비금속성
+  - Roughness: 면의 거친정도
+  - AO: Ambient Occlusion
+
+---
+
+## Authoring PBR materials
+
+- PBR 재질의 예
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_material.png" width="80%"/>
+</div>
 
 ---
 
@@ -211,6 +433,13 @@ float kD = 1.0 - kS;
 - pre-filter convolution artifacts
 - pre-computing BRDF
 - completing IBL reflectance
+
+---
+
+## Reference
+
+- [**lifeisforu**의 그냥 그런 블로그](https://lifeisforu.tistory.com/category/Physically%20Based%20Rendering)
+  - 매우 좋은 PBR 관련 설명글 (한국어)
 
 ---
 
