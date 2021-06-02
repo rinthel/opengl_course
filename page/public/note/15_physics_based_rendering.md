@@ -589,6 +589,151 @@ void Context::DrawScene(const glm::mat4& view,
 
 ---
 
+## Lighting
+
+- `Mesh` 클래스에 구 생성 함수 추가
+
+```cpp
+// mesh.h
+  static MeshUPtr CreateSphere(
+      uint32_t latiSegmentCount = 16,
+      uint32_t longiSegmentCount = 32);
+```
+
+---
+
+## Lighting
+
+- `Mesh::CreateSphere()` 구현
+
+```cpp
+MeshUPtr Mesh::CreateSphere(
+  uint32_t latiSegmentCount,
+  uint32_t longiSegmentCount) {
+  std::vector<Vertex> vertices;
+  std::vector<uint32_t> indices;
+
+  uint32_t circleVertCount = longiSegmentCount + 1;
+  vertices.resize((latiSegmentCount + 1) * circleVertCount);
+  for (uint32_t i = 0; i <= latiSegmentCount; i++) {
+    float v = (float)i / (float)latiSegmentCount;
+    float phi = (v - 0.5f) * glm::pi<float>();
+    auto cosPhi = cosf(phi);
+    auto sinPhi = sinf(phi);
+    for (uint32_t j = 0; j <= longiSegmentCount; j++) {
+      float u = (float)j / (float)longiSegmentCount;
+      float theta = u * glm::pi<float>() * 2.0f;
+      auto cosTheta = cosf(theta);
+      auto sinTheta = sinf(theta);
+      auto point = glm::vec3(
+        cosPhi * cosTheta, sinPhi, -cosPhi * sinTheta);
+      
+      vertices[i * circleVertCount + j] = Vertex {
+        point * 0.5f, point, glm::vec2(u, v), glm::vec3(0.0f)
+      };
+    }
+  }
+
+  indices.resize(latiSegmentCount * longiSegmentCount * 6);
+  for (uint32_t i = 0; i < latiSegmentCount; i++) {
+    for (uint32_t j = 0; j < longiSegmentCount; j++) {
+      uint32_t vertexOffset = i * circleVertCount + j;
+      uint32_t indexOffset = (i * longiSegmentCount + j) * 6;
+      indices[indexOffset    ] = vertexOffset;
+      indices[indexOffset + 1] = vertexOffset + 1;
+      indices[indexOffset + 2] = vertexOffset + 1 + circleVertCount;
+      indices[indexOffset + 3] = vertexOffset;
+      indices[indexOffset + 4] = vertexOffset + 1 + circleVertCount;
+      indices[indexOffset + 5] = vertexOffset + circleVertCount;
+    }
+  }
+
+  return Create(vertices, indices, GL_TRIANGLES);
+}
+```
+
+---
+
+## Lighting
+
+- `Context` 클래스에 구 메쉬 멤버 추가
+
+```cpp [4]
+// context.h
+  MeshUPtr m_box;
+  MeshUPtr m_plane;
+  MeshUPtr m_sphere;
+```
+
+---
+
+## Lighting
+
+- `Context::Init()` 함수에서 구 생성
+
+```cpp [3]
+  m_box = Mesh::CreateBox();
+  m_plane = Mesh::CreatePlane();
+  m_sphere = Mesh::CreateSphere();
+```
+
+---
+
+## Lighting
+
+- `Context::DrawScene()`에서 배열 형태로 구 그리기
+  - roughness / metalness 관측용
+
+```cpp [5-20]
+void Context::DrawScene(const glm::mat4& view,
+  const glm::mat4& projection,
+  const Program* program) {
+
+  program->Use();
+
+  const int sphereCount = 7;
+  const float offset = 1.2f;
+  for (int j = 0; j < sphereCount; j++) {
+    float y = ((float)j - (float)(sphereCount - 1) * 0.5f) * offset;
+    for (int i = 0; i < sphereCount; i++) {
+      float x = ((float)i - (float)(sphereCount - 1) * 0.5f) * offset;
+      auto modelTransform =
+          glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+      auto transform = projection * view * modelTransform;
+      program->SetUniform("transform", transform);
+      program->SetUniform("modelTransform", modelTransform);
+      m_sphere->Draw(program);
+    }
+  }
+}
+```
+
+---
+
+## Lighting
+
+- `Context::Render()`에서 `Context::DrawScene()` 호출
+
+```cpp [5]
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_simpleProgram->Use();
+  m_simpleProgram->SetUniform("color",
+    glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
+  DrawScene(view, projection, m_simpleProgram.get());
+```
+
+---
+
+## Lighting
+
+- 빌드 및 결과
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_example_setup_2.png" width="80%"/>
+</div>
+
+---
+
 ## Diffuse Irradiance
 
 - PBR and HDR

@@ -99,9 +99,7 @@ void Context::Render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     m_simpleProgram->Use();
     m_simpleProgram->SetUniform("color", glm::vec4(0.5f, 0.5f, 0.5f, 1.0f));
-    m_simpleProgram->SetUniform("transform", projection * view);
-    m_box->Draw(m_simpleProgram.get());
-    // DrawScene(view, projection, m_simpleProgram.get());
+    DrawScene(view, projection, m_simpleProgram.get());
 }
 
 bool Context::Init() {
@@ -111,7 +109,7 @@ bool Context::Init() {
 
     m_box = Mesh::CreateBox();
     m_plane = Mesh::CreatePlane();
-    // m_sphere = Mesh::CreateSphere();
+    m_sphere = Mesh::CreateSphere();
 
     m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
     return true;
@@ -121,20 +119,20 @@ void Context::DrawScene(const glm::mat4& view,
     const glm::mat4& projection,
     const Program* program) {
 
-    // program->Use();
+    program->Use();
 
-    // const int sphereCount = 7;
-    // const float offset = 1.2f;
-    // for (int j = 0; j < sphereCount; j++) {
-    //     float y = ((float)j - (float)(sphereCount - 1) * 0.5f) * offset;
-    //     for (int i = 0; i < sphereCount; i++) {
-    //         float x = ((float)i - (float)(sphereCount - 1) * 0.5f) * offset;
-    //         auto modelTransform =
-    //             glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
-    //         auto transform = projection * view * modelTransform;
-    //         program->SetUniform("transform", transform);
-    //         program->SetUniform("modelTransform", modelTransform);
-    //         m_sphere->Draw(program);
-    //     }
-    // }
+    const int sphereCount = 7;
+    const float offset = 1.2f;
+    for (int j = 0; j < sphereCount; j++) {
+        float y = ((float)j - (float)(sphereCount - 1) * 0.5f) * offset;
+        for (int i = 0; i < sphereCount; i++) {
+            float x = ((float)i - (float)(sphereCount - 1) * 0.5f) * offset;
+            auto modelTransform =
+                glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+            auto transform = projection * view * modelTransform;
+            program->SetUniform("transform", transform);
+            program->SetUniform("modelTransform", modelTransform);
+            m_sphere->Draw(program);
+        }
+    }
 }
