@@ -365,14 +365,14 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float k) {
 ## BRDF
 
 - Metallic workflow
-  - Metalness: 금속과 비금속의 정도를 0~1사이로 표현한 값
+  - Metallic: 금속과 비금속의 정도를 0~1사이로 표현한 값
     - 평균적인 비금속 물질의 F0값 0.04와 linear interpolation한 값을
       공식에 적용
 
 ```glsl
-vec3 fresnelSchlick(float cosTheta, vec3 surfaceColor, float metalness) {
+vec3 fresnelSchlick(float cosTheta, vec3 surfaceColor, float metallic) {
   vec3 F0 = vec3(0.04);
-  F0 = mix(F0, surfaceColor.rgb, metalness);
+  F0 = mix(F0, surfaceColor.rgb, metallic);
   return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 ```
@@ -396,7 +396,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 surfaceColor, float metalness) {
 - PBR 재질의 파라미터
   - Albedo: 면의 기본색상 (금속인 경우 F0값)
   - Normal: 법선 방향
-  - Metalness: 금속성 / 비금속성
+  - Metallic: 금속성 / 비금속성
   - Roughness: 면의 거친정도
   - AO: Ambient Occlusion
 
@@ -682,7 +682,7 @@ MeshUPtr Mesh::CreateSphere(
 ## Lighting
 
 - `Context::DrawScene()`에서 배열 형태로 구 그리기
-  - roughness / metalness 관측용
+  - roughness / metallic 관측용
 
 ```cpp [5-20]
 void Context::DrawScene(const glm::mat4& view,
@@ -826,11 +826,15 @@ vec3 FresnelSchlick(float cosTheta, vec3 F0) {
 }
 
 void main() {
+  vec3 albedo = material.albedo;
+  float metallic = material.metallic;
+  float roughness = material.roughness;
+  float ao = material.ao;
   vec3 fragNormal = normalize(normal);
   vec3 viewDir = normalize(viewPos - fragPos);
 
   vec3 F0 = vec3(0.04);
-  F0 = mix(F0, material.albedo, material.metallic);
+  F0 = mix(F0, albedo, metallic);
 
   // reflectance equation
   vec3 outRadiance = vec3(0.0);
@@ -844,13 +848,13 @@ void main() {
     vec3 radiance = lights[i].color * attenuation;
 
     // Cook-Torrance BRDF
-    float ndf = DistributionGGX(fragNormal, halfDir, material.roughness);
-    float geometry = GeometrySmith(fragNormal, viewDir, lightDir, material.roughness);
+    float ndf = DistributionGGX(fragNormal, halfDir, roughness);
+    float geometry = GeometrySmith(fragNormal, viewDir, lightDir, roughness);
     vec3 fresnel = FresnelSchlick(max(dot(halfDir, viewDir), 0.0), F0);
 
     vec3 kS = fresnel;
     vec3 kD = 1.0 - kS;
-    kD *= (1.0 - material.metallic);
+    kD *= (1.0 - metallic);
 
     float dotNV = max(dot(fragNormal, viewDir), 0.0);
     float dotNL = max(dot(fragNormal, lightDir), 0.0);
@@ -859,10 +863,10 @@ void main() {
     vec3 specular = numerator / max(denominator, 0.001);
 
     // add to outgoing radiance Lo
-    outRadiance += (kD * material.albedo / PI + specular) * radiance * dotNL;
+    outRadiance += (kD * albedo / PI + specular) * radiance * dotNL;
   }
 
-  vec3 ambient = vec3(0.03) * material.albedo * material.ao;
+  vec3 ambient = vec3(0.03) * albedo * ao;
   vec3 color = ambient + outRadiance;
 
   // Reinhard tone mapping + gamma correction
