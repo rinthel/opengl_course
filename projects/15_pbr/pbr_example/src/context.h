@@ -44,9 +44,10 @@ private:
     std::vector<Light> m_lights;
 
     struct Material {
-        glm::vec3 albedo { glm::vec3(1.0f, 1.0f, 1.0f) };
-        float roughness { 0.5f };
-        float metallic { 0.5f };
+        TexturePtr albedo;
+        TexturePtr roughness;
+        TexturePtr metallic;
+        TexturePtr normal;
         float ao { 0.1f };
     };
     Material m_material;

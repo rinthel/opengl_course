@@ -1003,6 +1003,188 @@ void main() {
 
 ---
 
+## Textured PBR
+
+- [freepbr.com](https://freepbr.com/materials/rusted-iron-pbr-metal-material-alt/)에서 
+  `rustediron1-alt2-bl.zip` 다운로드
+  - png image 4장
+  - `image` 디렉토리에 압축 해제
+
+<div>
+<img src="https://freepbr.com/wp-content/uploads/2016/06/iron-rusted-preview2b.png" width="30%"/>
+</div>
+
+---
+
+## Textured PBR
+
+- `shader/pbr_texture.vs` 작성
+  - `shader/pbr.vs` + normal mapping
+
+```cpp
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+layout (location = 3) in vec3 aTangent;
+
+uniform mat4 transform;
+uniform mat4 modelTransform;
+
+out vec3 fragPos;
+out vec2 texCoord;
+out mat3 TBN;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  fragPos = (modelTransform * vec4(aPos, 1.0)).xyz;
+  texCoord = aTexCoord;
+
+  mat4 invTransModelTransform = transpose(inverse(modelTransform));
+  vec3 normal = normalize((invTransModelTransform * vec4(aNormal, 0.0)).xyz);
+  vec3 tangent = normalize((invTransModelTransform * vec4(aTangent, 0.0)).xyz);
+  vec3 binormal = cross(normal, tangent);
+  TBN = mat3(tangent, binormal, normal);
+}
+```
+
+---
+
+## Textured PBR
+
+- `shader/pbr_texture.fs` 작성
+  - `shader/pbr.fs` 복사 후 수정
+
+```glsl [4, 9-12, 19-24]
+#version 330 core
+in vec3 fragPos;
+in vec2 texCoord;
+in mat3 TBN;
+
+// ...
+
+struct Material {
+  sampler2D albedo;
+  sampler2D metallic;
+  sampler2D roughness;
+  sampler2D normal;
+  float ao;
+};
+
+// ...
+
+void main() {
+  vec3 albedo = pow(texture(material.albedo, texCoord).rgb, vec3(2.2));
+  float metallic = texture(material.metallic, texCoord).r;
+  float roughness = texture(material.roughness, texCoord).r;
+  float ao = material.ao;
+  vec3 fragNormal = texture(material.normal, texCoord).rgb * 2.0 - 1.0;
+  fragNormal = TBN * fragNormal;
+  vec3 viewDir = normalize(viewPos - fragPos);
+```
+
+---
+
+## Textured PBR
+
+- albedo 값에 2.2승을 취하는 이유
+  - sRGB -> linear RGB space 전환
+
+<div>
+<img src="https://www.mathworks.com/matlabcentral/mlc-downloads/downloads/d1d5b469-89ab-47c9-aa17-d6fefaf684ac/802dd546-e1e3-4b43-b347-d3248317e516/images/screenshot.jpg" width="50%"/>
+</div>
+
+---
+
+## Textured PBR
+
+- `Context` 클래스의 `Material` 멤버 변경
+
+```cpp [2-5]
+  struct Material {
+    TexturePtr albedo;
+    TexturePtr roughness;
+    TexturePtr metallic;
+    TexturePtr normal;
+    float ao { 0.1f };
+  };
+```
+
+---
+
+## Textured PBR
+
+- `Context::Init()`에서 PBR 프로그램 변경 및 텍스처 로딩
+
+```cpp [3-13]
+  m_simpleProgram = Program::Create(
+    "./shader/simple.vs", "./shader/simple.fs");
+  m_pbrProgram = Program::Create(
+    "./shader/pbr_texture.vs", "./shader/pbr_texture.fs");
+
+  m_material.albedo = Texture::CreateFromImage(
+    Image::Load("./image/rustediron2_basecolor.png").get());
+  m_material.roughness = Texture::CreateFromImage(
+    Image::Load("./image/rustediron2_roughness.png").get());
+  m_material.metallic = Texture::CreateFromImage(
+    Image::Load("./image/rustediron2_metallic.png").get());
+  m_material.normal = Texture::CreateFromImage(
+    Image::Load("./image/rustediron2_normal.png").get());
+```
+
+---
+
+## Textured PBR
+
+- `Context::Render()`에서 재질값 변경을 위한 UI 제거 / 렌더링 코드 변경
+
+```cpp [4-16]
+  m_pbrProgram->Use();
+  m_pbrProgram->SetUniform("viewPos", m_cameraPos);
+  m_pbrProgram->SetUniform("material.ao", m_material.ao);
+  m_pbrProgram->SetUniform("material.albedo", 0);
+  m_pbrProgram->SetUniform("material.roughness", 1);
+  m_pbrProgram->SetUniform("material.metallic", 2);
+  m_pbrProgram->SetUniform("material.normal", 3);
+  glActiveTexture(GL_TEXTURE0);
+  m_material.albedo->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_material.roughness->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_material.metallic->Bind();
+  glActiveTexture(GL_TEXTURE3);
+  m_material.normal->Bind();
+  glActiveTexture(GL_TEXTURE0);
+```
+
+---
+
+## Textured PBR
+
+- `Context::DrawScene()`에서 불필요한 uniform 설정 코드 제거
+
+```cpp
+  float x = ((float)i - (float)(sphereCount - 1) * 0.5f) * offset;
+  auto modelTransform =
+      glm::translate(glm::mat4(1.0f), glm::vec3(x, y, 0.0f));
+  auto transform = projection * view * modelTransform;
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
+  m_sphere->Draw(program);
+```
+
+---
+
+## Textured PBR
+
+- 빌드 및 결과
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_example_texture_result.png" width="80%"/>
+</div>
+
+---
+
 ## Diffuse Irradiance
 
 - PBR and HDR
