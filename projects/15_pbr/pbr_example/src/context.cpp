@@ -79,6 +79,18 @@ void Context::Render() {
             m_cameraPitch = 0.0f;
             m_cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
         }
+        if (ImGui::CollapsingHeader("lights")) {
+            static int lightIndex = 0;
+            ImGui::DragInt("light.index", &lightIndex, 1.0f, 0, (int)m_lights.size() - 1);
+            ImGui::DragFloat3("light.pos", glm::value_ptr(m_lights[lightIndex].position), 0.01f);
+            ImGui::DragFloat3("light.color", glm::value_ptr(m_lights[lightIndex].color), 0.1f);
+        }
+        if (ImGui::CollapsingHeader("material")) {
+            ImGui::ColorEdit3("mat.albedo", glm::value_ptr(m_material.albedo));
+            ImGui::SliderFloat("mat.roughness", &m_material.roughness, 0.0f, 1.0f);
+            ImGui::SliderFloat("mat.metallic", &m_material.metallic, 0.0f, 1.0f);
+            ImGui::SliderFloat("mat.ao", &m_material.ao, 0.0f, 1.0f);
+        }
     }
     ImGui::End();
 
@@ -123,16 +135,16 @@ bool Context::Init() {
     m_pbrProgram = Program::Create("./shader/pbr.vs", "./shader/pbr.fs");
 
     m_lights.push_back({
-        glm::vec3(5.0f, 5.0f, 6.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+        glm::vec3(5.0f, 5.0f, 6.0f), glm::vec3(40.0f, 40.0f, 40.0f)
     });
     m_lights.push_back({
-        glm::vec3(-4.0f, 5.0f, 7.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+        glm::vec3(-4.0f, 5.0f, 7.0f), glm::vec3(40.0f, 40.0f, 40.0f)
     });
     m_lights.push_back({
-        glm::vec3(-4.0f, -6.0f, 8.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+        glm::vec3(-4.0f, -6.0f, 8.0f), glm::vec3(40.0f, 40.0f, 40.0f)
     });
     m_lights.push_back({
-        glm::vec3(5.0f, -6.0f, 9.0f), glm::vec3(20.0f, 20.0f, 20.0f)
+        glm::vec3(5.0f, -6.0f, 9.0f), glm::vec3(40.0f, 40.0f, 40.0f)
     });
     return true;
 }
@@ -154,8 +166,8 @@ void Context::DrawScene(const glm::mat4& view,
             auto transform = projection * view * modelTransform;
             program->SetUniform("transform", transform);
             program->SetUniform("modelTransform", modelTransform);
-            program->SetUniform("material.roughness", (float)i / (float)(sphereCount - 1));
-            program->SetUniform("material.metallic", (float)j / (float)(sphereCount - 1));
+            program->SetUniform("material.roughness", (float)(i + 1) / (float)sphereCount);
+            program->SetUniform("material.metallic", (float)(j + 1) / (float)sphereCount);
             m_sphere->Draw(program);
         }
     }

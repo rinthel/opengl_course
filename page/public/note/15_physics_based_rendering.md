@@ -737,9 +737,265 @@ void Context::DrawScene(const glm::mat4& view,
 ## Lighting
 
 - `shader/pbr.vs` 추가
+  - `shader/lighting.vs`과 거의 동일
 
 ```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+uniform mat4 modelTransform;
+
+out vec3 fragPos;
+out vec3 normal;
+out vec2 texCoord;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  fragPos = (modelTransform * vec4(aPos, 1.0)).xyz;
+  normal = (transpose(inverse(modelTransform)) * vec4(aNormal, 0.0)).xyz;
+  texCoord = aTexCoord;
+}
 ```
+
+---
+
+## Lighting
+
+- `shader/pbr.fs` 추가
+
+```glsl
+#version 330 core
+in vec3 normal;
+in vec2 texCoord;
+in vec3 fragPos;
+
+out vec4 fragColor;
+
+uniform vec3 viewPos;
+
+struct Light {
+  vec3 position;
+  vec3 color;
+};
+const int LIGHT_COUNT = 4;
+uniform Light lights[LIGHT_COUNT];
+
+struct Material {
+  vec3 albedo;
+  float metallic;
+  float roughness;
+  float ao;
+};
+uniform Material material;
+
+const float PI = 3.14159265359;
+
+float DistributionGGX(vec3 normal, vec3 halfDir, float roughness) {
+  float a = roughness * roughness;
+  float a2 = a * a;
+  float dotNH = max(dot(normal, halfDir), 0.0);
+  float dotNH2 = dotNH * dotNH;
+
+  float num = a2;
+  float denom = (dotNH2 * (a2 - 1.0) + 1.0);
+  return a2 / (PI * denom * denom);
+}
+
+float GeometrySchlickGGX(float dotNV, float roughness) {
+  float r = (roughness + 1.0);
+  float k = (r*r) / 8.0;
+
+  float num = dotNV;
+  float denom = dotNV * (1.0 - k) + k;
+  return num / denom;
+}
+
+float GeometrySmith(vec3 normal, vec3 viewDir, vec3 lightDir, float roughness) {
+  float dotNV = max(dot(normal, viewDir), 0.0);
+  float dotNL = max(dot(normal, lightDir), 0.0);
+  float ggx2 = GeometrySchlickGGX(dotNV, roughness);
+  float ggx1 = GeometrySchlickGGX(dotNL, roughness);
+  return ggx1 * ggx2;
+}
+
+vec3 FresnelSchlick(float cosTheta, vec3 F0) {
+  return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+void main() {
+  vec3 fragNormal = normalize(normal);
+  vec3 viewDir = normalize(viewPos - fragPos);
+
+  vec3 F0 = vec3(0.04);
+  F0 = mix(F0, material.albedo, material.metallic);
+
+  // reflectance equation
+  vec3 outRadiance = vec3(0.0);
+  for (int i = 0; i < LIGHT_COUNT; i++) {
+    // calculate per-light radiance
+    vec3 lightDir = normalize(lights[i].position - fragPos);
+    vec3 halfDir = normalize(viewDir + lightDir);
+
+    float dist = length(lights[i].position - fragPos);
+    float attenuation = 1.0 / (dist * dist);
+    vec3 radiance = lights[i].color * attenuation;
+
+    // Cook-Torrance BRDF
+    float ndf = DistributionGGX(fragNormal, halfDir, material.roughness);
+    float geometry = GeometrySmith(fragNormal, viewDir, lightDir, material.roughness);
+    vec3 fresnel = FresnelSchlick(max(dot(halfDir, viewDir), 0.0), F0);
+
+    vec3 kS = fresnel;
+    vec3 kD = 1.0 - kS;
+    kD *= (1.0 - material.metallic);
+
+    float dotNV = max(dot(fragNormal, viewDir), 0.0);
+    float dotNL = max(dot(fragNormal, lightDir), 0.0);
+    vec3 numerator = ndf * geometry * fresnel;
+    float denominator = 4.0 * dotNV * dotNL;
+    vec3 specular = numerator / max(denominator, 0.001);
+
+    // add to outgoing radiance Lo
+    outRadiance += (kD * material.albedo / PI + specular) * radiance * dotNL;
+  }
+
+  vec3 ambient = vec3(0.03) * material.albedo * material.ao;
+  vec3 color = ambient + outRadiance;
+
+  // Reinhard tone mapping + gamma correction
+  color = color / (color + 1.0);
+  color = pow(color, vec3(1.0 / 2.2));
+
+  fragColor = vec4(color, 1.0);
+}
+```
+
+---
+
+## Lighting
+
+- `Context`에 PBR 프로그램, light, material 멤버 추가
+
+```cpp [2, 8-20]
+  ProgramUPtr m_simpleProgram;
+  ProgramUPtr m_pbrProgram;
+
+  MeshUPtr m_box;
+  MeshUPtr m_plane;
+  MeshUPtr m_sphere;
+
+  struct Light {
+    glm::vec3 position { glm::vec3(0.0f, 0.0f, 0.0f) };
+    glm::vec3 color { glm::vec3(1.0f, 1.0f, 1.0f) };
+  };
+  std::vector<Light> m_lights;
+
+  struct Material {
+    glm::vec3 albedo { glm::vec3(1.0f, 1.0f, 1.0f) };
+    float roughness { 0.5f };
+    float metallic { 0.5f };
+    float ao { 0.1f };
+  };
+  Material m_material;
+```
+
+---
+
+## Lighting
+
+- `Context::Init()`에서 PBR 프로그램 초기화 및 light 초기화
+
+```cpp [2-15]
+  m_simpleProgram = Program::Create("./shader/simple.vs", "./shader/simple.fs");
+  m_pbrProgram = Program::Create("./shader/pbr.vs", "./shader/pbr.fs");
+
+  m_lights.push_back({
+    glm::vec3(5.0f, 5.0f, 6.0f), glm::vec3(40.0f, 40.0f, 40.0f)
+  });
+  m_lights.push_back({
+    glm::vec3(-4.0f, 5.0f, 7.0f), glm::vec3(40.0f, 40.0f, 40.0f)
+  });
+  m_lights.push_back({
+    glm::vec3(-4.0f, -6.0f, 8.0f), glm::vec3(40.0f, 40.0f, 40.0f)
+  });
+  m_lights.push_back({
+    glm::vec3(5.0f, -6.0f, 9.0f), glm::vec3(40.0f, 40.0f, 40.0f)
+  });
+```
+
+---
+
+## Lighting
+
+- `Context::Render()`에서 렌더링 코드 수정
+
+```cpp [2-11]
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_pbrProgram->Use();
+  m_pbrProgram->SetUniform("viewPos", m_cameraPos);
+  m_pbrProgram->SetUniform("material.albedo", m_material.albedo);
+  m_pbrProgram->SetUniform("material.ao", m_material.ao);
+  for (size_t i = 0; i < m_lights.size(); i++) {
+    auto posName = fmt::format("lights[{}].position", i);
+    auto colorName = fmt::format("lights[{}].color", i);
+    m_pbrProgram->SetUniform(posName, m_lights[i].position);
+    m_pbrProgram->SetUniform(colorName, m_lights[i].color);
+  }
+  DrawScene(view, projection, m_pbrProgram.get());
+```
+
+---
+
+## Lighting
+
+- `Context::Render()`의 ImGui 코드에 light 및 material 조작 UI 추가
+
+```cpp
+  // in ImGui::Begin()
+  if (ImGui::CollapsingHeader("lights")) {
+    static int lightIndex = 0;
+    ImGui::DragInt("light.index", &lightIndex, 1.0f, 0, (int)m_lights.size() - 1);
+    ImGui::DragFloat3("light.pos", glm::value_ptr(m_lights[lightIndex].position), 0.01f);
+    ImGui::DragFloat3("light.color", glm::value_ptr(m_lights[lightIndex].color), 0.1f);
+  }
+  if (ImGui::CollapsingHeader("material")) {
+    ImGui::ColorEdit3("mat.albedo", glm::value_ptr(m_material.albedo));
+    ImGui::SliderFloat("mat.roughness", &m_material.roughness, 0.0f, 1.0f);
+    ImGui::SliderFloat("mat.metallic", &m_material.metallic, 0.0f, 1.0f);
+    ImGui::SliderFloat("mat.ao", &m_material.ao, 0.0f, 1.0f);
+  }
+```
+
+---
+
+## Lighting
+
+- `Context::DrawScene()`에서 각 sphere 렌더링 전
+  각기 다른 roughness, metallic 파라미터 세팅
+
+```cpp [3-6]
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
+  program->SetUniform("material.roughness",
+    (float)(i + 1) / (float)sphereCount);
+  program->SetUniform("material.metallic",
+    (float)(j + 1) / (float)sphereCount);
+  m_sphere->Draw(program);
+```
+
+---
+
+## Lighting
+
+- 빌드 및 결과
+  - 빛의 위치 및 색상, 카메라 위치 등을 달리하며 결과 관찰
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_example_first_result.png" width="67%"/>
+</div>
 
 ---
 

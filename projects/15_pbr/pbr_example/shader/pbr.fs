@@ -25,10 +25,10 @@ uniform Material material;
 const float PI = 3.14159265359;
 
 float DistributionGGX(vec3 normal, vec3 halfDir, float roughness) {
-    float a = roughness*roughness;
-    float a2 = a*a;
+    float a = roughness * roughness;
+    float a2 = a * a;
     float dotNH = max(dot(normal, halfDir), 0.0);
-    float dotNH2 = dotNH*dotNH;
+    float dotNH2 = dotNH * dotNH;
 
     float num = a2;
     float denom = (dotNH2 * (a2 - 1.0) + 1.0);
