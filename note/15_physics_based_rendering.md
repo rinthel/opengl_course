@@ -1185,6 +1185,360 @@ void main() {
 
 ---
 
+## IBL
+
+- Image Based Lighting
+  - environment map을 하나의 큰 광원으로 사용하는 기술
+  - cubemap의 각 픽셀이 광원이 된다
+  - 장면이 환경 안에 있는 느낌을 더 잘 표현할 수 있다 
+
+---
+
+## IBL
+
+- IBL 적용하기
+  - direct lighting의 경우 각 광원의 기여도의 합
+  - IBL의 경우 모든 방향에서의 광원을 고려해야함
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_cook_torrance_reflectance_eq.png" width="80%"/>
+</div>
+
+---
+
+## IBL
+
+- IBL 적용하기
+  - 적분식 계산을 미리 해둬서 real-time에 동작하도록 하자
+  - 적분 기호의 분배
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_cook_torrance_refeq_divide.png" width="90%"/>
+</div>
+
+---
+
+## IBL
+
+- Diffuse irradiance
+  - Lambert term은 상수이므로 적분식 밖으로 빼낼 수 있음
+  - **p**가 환경맵의 한가운데 있다고 가정할 경우 적분식은 **W**i
+    에 대한 식으로 볼 수 있음
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_eq.png" width="50%"/>
+</div>
+
+---
+
+## Diffuse Irradiance Map
+
+- 환경맵을 Convolution하여 diffuse irradiance를 미리 계산해둘 수 있음
+  - 출력 방향 **w**o에 대하여 반구 내 모든 입력 방향 **w**i에 대한 빛의
+    가중치 합산
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_figure.png" width="40%"/>
+</div>
+
+---
+
+## Diffuse Irradiance Map
+
+- Wave 엔진에서 계산 한 환경 맵과 irradiance map의 예
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_irradiance_map_example.png" width="80%"/>
+</div>
+
+---
+
+## Radiance HDR file
+
+- 일반적인 환경 맵으로 계산된 irradiance map은 제대로 동작하지 않음
+  - 값의 범위가 0 ~ 1 사이로 잘려서 들어가기 때문
+  - 1 이상의 값을 저장할 수 있는 HDR 포맷의 환경 맵을 사용해야 함
+
+---
+
+## Radiance HDR file
+
+- [hdrlabs.com](http://www.hdrlabs.com/sibl/archive.html)에서
+  **Alexs Apartment** 다운로드
+  - `Alexs_Apt_2k.hdr`을 `image` 디렉토리에 저장
+  - cubemap이 아닌 equirectangular map 형태로 저장되어 있음
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_hdr_map_example.jpg" width="60%"/>
+</div>
+
+---
+
+## Radiance HDR file
+
+- HDR 환경 맵을 실제로 사용하기 위해 해결해야 할 문제들
+  - `.hdr` 파일 읽기
+    - floating point image
+  - equirectangular => cubemap 전환하기
+    - cubemap 형태의 framebuffer 생성
+    - equirectangular image를 cubemap에 렌더링
+
+---
+
+## Equirectangular-to-Cube
+
+- `Image` 클래스 메소드 리팩토링
+  - 채널 당 바이트 수 저장
+  - 입력된 이미지 확장자가 hdr일 경우 float 데이터로 읽기
+
+---
+
+## Equirectangular-to-Cube
+
+- `Image` 클래스 메소드 리팩토링
+
+```cpp [6-7, 16, 23-24, 28]
+CLASS_PTR(Image)
+class Image {
+public:
+  static ImageUPtr Load(const std::string& filepath,
+    bool flipVertical = true);
+  static ImageUPtr Create(int width, int height,
+    int channelCount = 4, int bytePerChannel = 1);
+  static ImageUPtr CreateSingleColorImage(int width, int height,
+    const glm::vec4& color);
+  ~Image();
+
+  const uint8_t* GetData() const { return m_data; }
+  int GetWidth() const { return m_width; }
+  int GetHeight() const { return m_height; }
+  int GetChannelCount() const { return m_channelCount; }
+  int GetBytePerChannel() const { return m_bytePerChannel; }
+
+  void SetCheckImage(int gridX, int gridY);
+    
+private:
+  Image() {};
+  bool LoadWithStb(const std::string& filepath, bool flipVertical);
+  bool Allocate(int width, int height,
+    int channelCount, int bytePerChannel);
+  int m_width { 0 };
+  int m_height { 0 };
+  int m_channelCount { 0 };
+  int m_bytePerChannel { 1 };
+  uint8_t* m_data { nullptr };
+};
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Image` 클래스 메소드 리팩토링
+
+```cpp [1-2, 4]
+ImageUPtr Image::Create(int width, int height,
+  int channelCount, int bytePerChannel) {
+  auto image = ImageUPtr(new Image());
+  if (!image->Allocate(width, height, channelCount, bytePerChannel))
+    return nullptr;
+  return std::move(image);
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Image` 클래스 메소드 리팩토링
+
+```cpp [1-2, 6-8]
+bool Image::Allocate(int width, int height,
+  int channelCount, int bytePerChannel) {
+  m_width = width;
+  m_height = height;
+  m_channelCount = channelCount;
+  m_bytePerChannel = bytePerChannel;
+  m_data = (uint8_t*)malloc(m_width * m_height *
+    m_channelCount * m_bytePerChannel);
+  return m_data ? true : false;
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Image` 클래스 메소드 리팩토링
+
+```cpp [4-14]
+bool Image::LoadWithStb(const std::string& filepath,
+  bool flipVertical) {
+  stbi_set_flip_vertically_on_load(flipVertical);
+  auto ext = filepath.substr(filepath.find_last_of('.'));
+  if (ext == ".hdr" || ext == ".HDR") {
+    m_data = (uint8_t*)stbi_loadf(filepath.c_str(),
+      &m_width, &m_height, &m_channelCount, 0);
+    m_bytePerChannel = 4;
+  }
+  else {
+    m_data = stbi_load(filepath.c_str(),
+      &m_width, &m_height, &m_channelCount, 0);
+    m_bytePerChannel = 1;
+  }
+  if (!m_data) {
+    SPDLOG_ERROR("failed to load image: {}", filepath);
+    return false;
+  }
+  return true;
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Texture` 클래스 메소드 리팩토링
+  - `Image` 인스턴스로부터 텍스처 생성시 `bytePerChannel` 값을 참조
+  - `bytePerChannel`이 4일 경우 `GL_RGB` 대신 `GL_RGB16F`를 사용
+
+---
+
+## Equirectangular-to-Cube
+
+- `Texture` 클래스 메소드 리팩토링
+
+```cpp [14-23]
+void Texture::SetTextureFromImage(const Image* image) {
+  GLenum format = GL_RGBA;
+  switch (image->GetChannelCount()) {
+    default: break;
+    case 1: format = GL_RED; break;
+    case 2: format = GL_RG; break;
+    case 3: format = GL_RGB; break;
+  }
+
+  m_width = image->GetWidth();
+  m_height = image->GetHeight();
+  m_format = format;
+  m_type = GL_UNSIGNED_BYTE;
+  if (image->GetBytePerChannel() == 4) {
+    m_type = GL_FLOAT;
+    switch (image->GetChannelCount()) {
+      default: break;
+      case 1: m_format = GL_R16F; break;
+      case 2: m_format = GL_RG16F; break;
+      case 3: m_format = GL_RGB16F; break;
+      case 4: m_format = GL_RGBA16F; break;
+    }
+  }
+  
+  glTexImage2D(GL_TEXTURE_2D, 0, m_format,
+    m_width, m_height, 0,
+    format, m_type,
+    image->GetData());
+
+  glGenerateMipmap(GL_TEXTURE_2D);
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `shader/spherical_map.vs` 추가
+  - `shader/skybox.vs`와 거의 동일
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+out vec3 localPos;
+uniform mat4 transform;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  localPos = aPos;
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `shader/spherical_map.fs` 추가
+
+```glsl
+#version 330 core
+out vec4 fragColor;
+in vec3 localPos;
+uniform sampler2D tex;
+
+const vec2 invPi = vec2(0.1591549, 0.3183098862);
+vec2 SampleSphericalMap(vec3 v) {
+  return vec2(atan(v.z, v.x), asin(v.y)) * invPi + 0.5;
+}
+
+void main() {
+  vec2 uv = SampleSphericalMap(normalize(localPos)); // normalize
+  vec3 color = texture(tex, uv).rgb;
+  fragColor = vec4(color, 1.0);
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Context` 클래스에 HDR equirectangular map을 cube로 그리기 위한 멤버 추가
+
+```cpp
+  // context.h
+  TextureUPtr m_hdrMap;
+  ProgramUPtr m_sphericalMapProgram;
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Context::Init()`에서 텍스처 및 프로그램 초기화
+
+```cpp
+  m_hdrMap = Texture::CreateFromImage(
+    Image::Load("./image/Alexs_Apt_2k.hdr").get());
+  m_sphericalMapProgram = Program::Create(
+    "./shader/spherical_map.vs", "./shader/spherical_map.fs");
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Context::Render()`에서 렌더링 코드 호출
+
+```cpp
+  m_sphericalMapProgram->Use();
+  m_sphericalMapProgram->SetUniform("transform",
+    projection * view *
+    glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.0f)));
+  m_sphericalMapProgram->SetUniform("tex", 0);
+  m_hdrMap->Bind();
+  m_box->Draw(m_sphericalMapProgram.get());
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- 빌드 및 결과
+  - exposure tone mapping을 적용해보자
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_equirect_to_cube_result.png" width="75%"/>
+</div>
+
+---
+
 ## Diffuse Irradiance
 
 - PBR and HDR
