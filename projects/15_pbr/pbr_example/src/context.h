@@ -52,6 +52,9 @@ private:
     };
     Material m_material;
 
+    TextureUPtr m_hdrMap;
+    ProgramUPtr m_sphericalMapProgram;
+
     // screen size
     int m_width {640};
     int m_height {480};

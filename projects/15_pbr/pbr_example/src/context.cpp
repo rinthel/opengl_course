@@ -126,6 +126,14 @@ void Context::Render() {
         m_pbrProgram->SetUniform(colorName, m_lights[i].color);
     }
     DrawScene(view, projection, m_pbrProgram.get());
+
+    m_sphericalMapProgram->Use();
+    m_sphericalMapProgram->SetUniform("transform",
+        projection * view *
+        glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.0f)));
+    m_sphericalMapProgram->SetUniform("tex", 0);
+    m_hdrMap->Bind();
+    m_box->Draw(m_sphericalMapProgram.get());
 }
 
 bool Context::Init() {
@@ -161,6 +169,12 @@ bool Context::Init() {
     m_lights.push_back({
         glm::vec3(5.0f, -6.0f, 9.0f), glm::vec3(40.0f, 40.0f, 40.0f)
     });
+
+    m_hdrMap = Texture::CreateFromImage(
+        Image::Load("./image/Alexs_Apt_2k.hdr").get());
+    m_sphericalMapProgram = Program::Create(
+        "./shader/spherical_map.vs", "./shader/spherical_map.fs");
+
     return true;
 }
 
