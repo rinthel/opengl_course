@@ -2108,14 +2108,157 @@ void main() {
 <img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_skybox_result.png" width="80%"/>
 </div>
 
+---
+
+## Diffuse Irradiance
+
+- Irradiance map 적용
+  - 계산된 irradiance map은 indirect light로 보면 된다
+    - ambient 색상으로 사용
+  - diffuse와 specular가 섞여있으므로 Fresnel 값으로 diffuse 성분만 알아낸다
+  - Fresnel 계산시 halfway 대신 normal 사용
+  - normal에 roughness 적용 필요
 
 ---
 
 ## Diffuse Irradiance
 
-- PBR and HDR
-- Cubemap convolution
-- PBR and indirect irradiance lighting
+- 만들어진 irradiance map을 PBR에 적용해보자
+  - `shader/pbr.fs` 수정
+
+```glsl [3-4]
+uniform Material material;
+
+uniform samplerCube irradianceMap;
+uniform int useIrradiance;
+
+// ...
+
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+}
+```
+
+---
+
+## Diffuse Irradiance
+
+- `shader/pbr.fs` 수정
+
+```glsl [2-8]
+  vec3 ambient = vec3(0.03) * albedo * ao;
+  if (useIrradiance == 1) {
+    vec3 kS = FresnelSchlickRoughness(dotNV, F0, roughness);
+    vec3 kD = 1.0 - kS;
+    vec3 irradiance = texture(irradianceMap, fragNormal).rgb;
+    vec3 diffuse = irradiance * albedo;
+    ambient = (kD * diffuse) * ao;
+  }
+```
+
+---
+
+## Diffuse Irradiance
+
+- `Context` 클래스 멤버 추가 및 다시 PBR을 위한 파라미터로 변경
+
+```cpp [6, 9-11]
+  struct Light {
+    glm::vec3 position { glm::vec3(0.0f, 0.0f, 0.0f) };
+    glm::vec3 color { glm::vec3(1.0f, 1.0f, 1.0f) };
+  };
+  std::vector<Light> m_lights;
+  bool m_useDiffuseIrradiance { true };
+
+  struct Material {
+    glm::vec3 albedo { glm::vec3(1.0f, 1.0f, 1.0f) };
+    float roughness { 0.5f };
+    float metallic { 0.5f };
+    float ao { 0.1f };
+  };
+  Material m_material;
+```
+
+---
+
+## Diffuse Irradiance
+
+- `Context::Init()`의 프로그램 초기화 코드 변경 및 텍스처 로딩 코드 삭제
+
+```cpp [3-4]
+  m_simpleProgram = Program::Create(
+    "./shader/simple.vs", "./shader/simple.fs");
+  m_pbrProgram = Program::Create(
+    "./shader/pbr.vs", "./shader/pbr.fs");
+```
+
+---
+
+## Diffuse Irradiance
+
+- `Context::Render()`, `DrawScene()` 렌더링 코드 변경
+
+```cpp [6-9, 23, 31-32]
+  // Context::Render()
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_pbrProgram->Use();
+  m_pbrProgram->SetUniform("viewPos", m_cameraPos);
+  m_pbrProgram->SetUniform("material.ao", m_material.ao);
+  m_pbrProgram->SetUniform("material.albedo", m_material.albedo);
+  m_pbrProgram->SetUniform("useIrradiance", m_useDiffuseIrradiance ? 1 : 0);
+  m_pbrProgram->SetUniform("irradianceMap", 0);
+  m_diffuseIrradianceMap->Bind();
+  for (size_t i = 0; i < m_lights.size(); i++) {
+      auto posName = fmt::format("lights[{}].position", i);
+      auto colorName = fmt::format("lights[{}].color", i);
+      m_pbrProgram->SetUniform(posName, m_lights[i].position);
+      m_pbrProgram->SetUniform(colorName, m_lights[i].color);
+  }
+  DrawScene(view, projection, m_pbrProgram.get());
+
+  glDepthFunc(GL_LEQUAL);
+  m_skyboxProgram->Use();
+  m_skyboxProgram->SetUniform("projection", projection);
+  m_skyboxProgram->SetUniform("view", view);
+  m_skyboxProgram->SetUniform("cubeMap", 0);
+  m_hdrCubeMap->Bind();
+  m_box->Draw(m_skyboxProgram.get());
+  glDepthFunc(GL_LESS);
+
+
+  // Context::DrawScene()
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
+  program->SetUniform("material.roughness", (float)(i + 1) / (float)sphereCount);
+  program->SetUniform("material.metallic", (float)(j + 1) / (float)sphereCount);
+```
+
+---
+
+## Diffuse Irradiance
+
+- ImGui 윈도우에 재질 및 irradiance map 사용 여부 조작 UI 추가
+
+```cpp
+  if (ImGui::CollapsingHeader("material")) {
+    ImGui::ColorEdit3("mat.albedo", glm::value_ptr(m_material.albedo));
+    ImGui::SliderFloat("mat.roughness", &m_material.roughness, 0.0f, 1.0f);
+    ImGui::SliderFloat("mat.metallic", &m_material.metallic, 0.0f, 1.0f);
+    ImGui::SliderFloat("mat.ao", &m_material.ao, 0.0f, 1.0f);
+  }
+  ImGui::Checkbox("use irradiance", &m_useDiffuseIrradiance);
+```
+
+---
+
+## Diffuse Irradiance
+
+- 빌드 및 결과
+  - irradiance 사용 여부에 따른 결과 차이를 비교해보자
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_result.png" width="70%"/>
+</div>
 
 ---
 
