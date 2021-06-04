@@ -63,6 +63,7 @@ void main() {
     float ao = material.ao;
     vec3 fragNormal = normalize(normal);
     vec3 viewDir = normalize(viewPos - fragPos);
+    float dotNV = max(dot(fragNormal, viewDir), 0.0);
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
@@ -87,7 +88,6 @@ void main() {
         vec3 kD = 1.0 - kS;
         kD *= (1.0 - metallic);
 
-        float dotNV = max(dot(fragNormal, viewDir), 0.0);
         float dotNL = max(dot(fragNormal, lightDir), 0.0);
         vec3 numerator = ndf * geometry * fresnel;
         float denominator = 4.0 * dotNV * dotNL;
