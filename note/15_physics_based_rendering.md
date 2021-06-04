@@ -832,6 +832,7 @@ void main() {
   float ao = material.ao;
   vec3 fragNormal = normalize(normal);
   vec3 viewDir = normalize(viewPos - fragPos);
+  float dotNV = max(dot(fragNormal, viewDir), 0.0);
 
   vec3 F0 = vec3(0.04);
   F0 = mix(F0, albedo, metallic);
@@ -856,7 +857,6 @@ void main() {
     vec3 kD = 1.0 - kS;
     kD *= (1.0 - metallic);
 
-    float dotNV = max(dot(fragNormal, viewDir), 0.0);
     float dotNL = max(dot(fragNormal, lightDir), 0.0);
     vec3 numerator = ndf * geometry * fresnel;
     float denominator = 4.0 * dotNV * dotNL;
@@ -1965,13 +1965,300 @@ void main() {
 <div>
 <img src="/opengl_course/note/images/15_pbr_hdr_map_skybox_result.png" width="70%"/>
 </div>
+
+---
+
+## Cubemap Convolution
+
+- Cubemap으로부터 convolution을 통한 diffuse irradiance 계산
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_figure.png" width="40%"/>
+</div>
+
+---
+
+## Cubemap Convolution
+
+- 구면 좌표계를 이용한 적분식으로의 변경
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_spherical_figure.png" width="50%"/>
+</div>
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_spherical.png" width="80%"/>
+</div>
+
+---
+
+## Cubemap Convolution
+
+- `shader/diffuse_irradiance.fs` 추가
+
+```glsl
+#version 330 core
+out vec4 fragColor;
+in vec3 localPos;
+
+uniform samplerCube cubeMap;
+const float PI = 3.14159265359;
+
+void main() {
+  // the sample direction equals the hemisphere’s orientation
+  vec3 normal = normalize(localPos);
+  vec3 up = vec3(0.0, 1.0, 0.0);
+  vec3 right = normalize(cross(up, normal)); 
+  up = cross(normal, right);
+
+  vec3 irradiance = vec3(0.0);
+  float sampleDelta = 0.025;
+  float nrSamples = 0.0;
+  for(float phi = 0.0; phi < 2.0 * PI; phi += sampleDelta) {
+    for(float theta = 0.0; theta < 0.5 * PI; theta += sampleDelta) {
+      // spherical to cartesian (in tangent space)
+      vec3 tangentSample = vec3(
+        sin(theta) * cos(phi),
+        sin(theta) * sin(phi),
+        cos(theta));
+      // tangent space to world
+      vec3 sampleVec = tangentSample.x * right +
+        tangentSample.y * up +
+        tangentSample.z * normal;
+      irradiance += texture(cubeMap, sampleVec).rgb * cos(theta) * sin(theta);
+      nrSamples++;
+    }
+  }
+  irradiance = PI * irradiance * (1.0 / float(nrSamples));
+
+  fragColor = vec4(irradiance, 1.0);
+}
+```
+
+---
+
+## Cubemap Convolution
+
+- `Context`에 멤버 추가
+
+```cpp [5-6]
+  TextureUPtr m_hdrMap;
+  ProgramUPtr m_sphericalMapProgram;
+  CubeTexturePtr m_hdrCubeMap;
+  ProgramUPtr m_skyboxProgram;
+  CubeTexturePtr m_diffuseIrradianceMap;
+  ProgramUPtr m_diffuseIrradianceProgram;
+```
+
+---
+
+## Cubemap Convolution
+
+- `Context::Init()`에서 HDR cubemap convolution 렌더링 코드 추가
+
+```cpp []
+  m_diffuseIrradianceProgram = Program::Create(
+      "./shader/skybox_hdr.vs", "./shader/diffuse_irradiance.fs");
+  m_diffuseIrradianceMap = CubeTexture::Create(64, 64, GL_RGB16F, GL_FLOAT);
+  cubeFramebuffer = CubeFramebuffer::Create(m_diffuseIrradianceMap);
+  glDepthFunc(GL_LEQUAL);
+  m_diffuseIrradianceProgram->Use();
+  m_diffuseIrradianceProgram->SetUniform("projection", projection);
+  m_diffuseIrradianceProgram->SetUniform("cubeMap", 0);
+  m_hdrCubeMap->Bind();
+  glViewport(0, 0, 64, 64);
+  for (int i = 0; i < (int)views.size(); i++) {
+      cubeFramebuffer->Bind(i);
+      glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      m_diffuseIrradianceProgram->SetUniform("view", views[i]);
+      m_box->Draw(m_diffuseIrradianceProgram.get());
+  }
+  glDepthFunc(GL_LESS);
+
+  Framebuffer::BindToDefault();
+  glViewport(0, 0, m_width, m_height);
+```
+
+---
+
+## Cubemap Convolution
+
+- `Context::Render()`에서 skybox를 HDR cubemap 대신
+  diffuse irradiance map으로 대체하여 결과 확인
+
+```cpp [6]
+  glDepthFunc(GL_LEQUAL);
+  m_skyboxProgram->Use();
+  m_skyboxProgram->SetUniform("projection", projection);
+  m_skyboxProgram->SetUniform("view", view);
+  m_skyboxProgram->SetUniform("cubeMap", 0);
+  m_diffuseIrradianceMap->Bind();
+  m_box->Draw(m_skyboxProgram.get());
+  glDepthFunc(GL_LESS);
+```
+
+---
+
+## Cubemap Convolution
+
+- 빌드 및 결과
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_skybox_result.png" width="80%"/>
+</div>
+
 ---
 
 ## Diffuse Irradiance
 
-- PBR and HDR
-- Cubemap convolution
-- PBR and indirect irradiance lighting
+- Irradiance map 적용
+  - 계산된 irradiance map은 indirect light로 보면 된다
+    - ambient 색상으로 사용
+  - diffuse와 specular가 섞여있으므로 Fresnel 값으로 diffuse 성분만 알아낸다
+  - Fresnel 계산시 halfway 대신 normal 사용
+  - normal에 roughness 적용 필요
+
+---
+
+## Diffuse Irradiance
+
+- 만들어진 irradiance map을 PBR에 적용해보자
+  - `shader/pbr.fs` 수정
+
+```glsl [3-4]
+uniform Material material;
+
+uniform samplerCube irradianceMap;
+uniform int useIrradiance;
+
+// ...
+
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+}
+```
+
+---
+
+## Diffuse Irradiance
+
+- `shader/pbr.fs` 수정
+
+```glsl [2-8]
+  vec3 ambient = vec3(0.03) * albedo * ao;
+  if (useIrradiance == 1) {
+    vec3 kS = FresnelSchlickRoughness(dotNV, F0, roughness);
+    vec3 kD = 1.0 - kS;
+    vec3 irradiance = texture(irradianceMap, fragNormal).rgb;
+    vec3 diffuse = irradiance * albedo;
+    ambient = (kD * diffuse) * ao;
+  }
+```
+
+---
+
+## Diffuse Irradiance
+
+- `Context` 클래스 멤버 추가 및 다시 PBR을 위한 파라미터로 변경
+
+```cpp [6, 9-11]
+  struct Light {
+    glm::vec3 position { glm::vec3(0.0f, 0.0f, 0.0f) };
+    glm::vec3 color { glm::vec3(1.0f, 1.0f, 1.0f) };
+  };
+  std::vector<Light> m_lights;
+  bool m_useDiffuseIrradiance { true };
+
+  struct Material {
+    glm::vec3 albedo { glm::vec3(1.0f, 1.0f, 1.0f) };
+    float roughness { 0.5f };
+    float metallic { 0.5f };
+    float ao { 0.1f };
+  };
+  Material m_material;
+```
+
+---
+
+## Diffuse Irradiance
+
+- `Context::Init()`의 프로그램 초기화 코드 변경 및 텍스처 로딩 코드 삭제
+
+```cpp [3-4]
+  m_simpleProgram = Program::Create(
+    "./shader/simple.vs", "./shader/simple.fs");
+  m_pbrProgram = Program::Create(
+    "./shader/pbr.vs", "./shader/pbr.fs");
+```
+
+---
+
+## Diffuse Irradiance
+
+- `Context::Render()`, `DrawScene()` 렌더링 코드 변경
+
+```cpp [6-9, 23, 31-32]
+  // Context::Render()
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_pbrProgram->Use();
+  m_pbrProgram->SetUniform("viewPos", m_cameraPos);
+  m_pbrProgram->SetUniform("material.ao", m_material.ao);
+  m_pbrProgram->SetUniform("material.albedo", m_material.albedo);
+  m_pbrProgram->SetUniform("useIrradiance", m_useDiffuseIrradiance ? 1 : 0);
+  m_pbrProgram->SetUniform("irradianceMap", 0);
+  m_diffuseIrradianceMap->Bind();
+  for (size_t i = 0; i < m_lights.size(); i++) {
+      auto posName = fmt::format("lights[{}].position", i);
+      auto colorName = fmt::format("lights[{}].color", i);
+      m_pbrProgram->SetUniform(posName, m_lights[i].position);
+      m_pbrProgram->SetUniform(colorName, m_lights[i].color);
+  }
+  DrawScene(view, projection, m_pbrProgram.get());
+
+  glDepthFunc(GL_LEQUAL);
+  m_skyboxProgram->Use();
+  m_skyboxProgram->SetUniform("projection", projection);
+  m_skyboxProgram->SetUniform("view", view);
+  m_skyboxProgram->SetUniform("cubeMap", 0);
+  m_hdrCubeMap->Bind();
+  m_box->Draw(m_skyboxProgram.get());
+  glDepthFunc(GL_LESS);
+
+
+  // Context::DrawScene()
+  program->SetUniform("transform", transform);
+  program->SetUniform("modelTransform", modelTransform);
+  program->SetUniform("material.roughness", (float)(i + 1) / (float)sphereCount);
+  program->SetUniform("material.metallic", (float)(j + 1) / (float)sphereCount);
+```
+
+---
+
+## Diffuse Irradiance
+
+- ImGui 윈도우에 재질 및 irradiance map 사용 여부 조작 UI 추가
+
+```cpp
+  if (ImGui::CollapsingHeader("material")) {
+    ImGui::ColorEdit3("mat.albedo", glm::value_ptr(m_material.albedo));
+    ImGui::SliderFloat("mat.roughness", &m_material.roughness, 0.0f, 1.0f);
+    ImGui::SliderFloat("mat.metallic", &m_material.metallic, 0.0f, 1.0f);
+    ImGui::SliderFloat("mat.ao", &m_material.ao, 0.0f, 1.0f);
+  }
+  ImGui::Checkbox("use irradiance", &m_useDiffuseIrradiance);
+```
+
+---
+
+## Diffuse Irradiance
+
+- 빌드 및 결과
+  - irradiance 사용 여부에 따른 결과 차이를 비교해보자
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_result.png" width="70%"/>
+</div>
 
 ---
 
