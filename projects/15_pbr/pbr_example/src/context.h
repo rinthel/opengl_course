@@ -59,6 +59,9 @@ private:
     CubeTexturePtr m_diffuseIrradianceMap;
     ProgramUPtr m_diffuseIrradianceProgram;
 
+    CubeTexturePtr m_preFilteredMap;
+    ProgramUPtr m_preFilteredProgram;
+
     // screen size
     int m_width {640};
     int m_height {480};

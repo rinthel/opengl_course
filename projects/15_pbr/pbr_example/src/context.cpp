@@ -206,6 +206,38 @@ bool Context::Init() {
     }
     glDepthFunc(GL_LESS);
 
+    m_preFilteredProgram = Program::Create(
+        "./shader/skybox_hdr.vs", "./shader/importance_sampling.fs");
+    m_preFilteredMap = CubeTexture::Create(128, 128, GL_RGB16F, GL_FLOAT);
+    m_preFilteredMap->GenerateMipmap();
+    uint32_t fbo = 0, rbo = 0;
+    glGenRenderbuffers(1, &rbo);
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    uint32_t maxMipLevels = 5;
+    m_preFilteredProgram->Use();
+    m_preFilteredProgram->SetUniform("projection", projection);
+    m_preFilteredProgram->SetUniform("cubeMap", 0);
+    m_hdrCubeMap->Bind();
+    for (uint32_t mip = 0; mip < maxMipLevels; mip++) {
+        uint32_t mipWidth = 128 >> mip;
+        uint32_t mipHeight = 128 >> mip;
+        glBindRenderbuffer(GL_RENDERBUFFER, fbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mipWidth, mipHeight);
+        glViewport(0, 0, mipWidth, mipHeight);
+
+        float roughness = (float)mip / (float)(maxMipLevels - 1);
+        m_preFilteredProgram->SetUniform("roughness", roughness);
+        for (uint32_t i = 0; i < (int)views.size(); i++) {
+            m_preFilteredProgram->SetUniform("view", views[i]);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, m_preFilteredMap->Get(), mip);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            m_box->Draw(m_preFilteredProgram.get());   
+        }
+    }
+
     Framebuffer::BindToDefault();
     glViewport(0, 0, m_width, m_height);
 
