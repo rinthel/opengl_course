@@ -2264,6 +2264,44 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
 
 ## Specular IBL
 
+- Specular 항에 대한 precomputing 방법
+  - Diffuse 항과는 달리 상수항이 아니므로 그대로 미리 계산할 수는 없다
+  - Epic Games' split sum approximation
+    - Light 부분과 BRDF 부분을 나누어 계산해둔다
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_specular_split_eq.png" width="60%"/>
+</div>
+
+---
+
+## Prefiltered Light
+
+- `CubeTexture` 클래스에 mipmap 생성 기능 추가
+
+```cpp
+// in CubeTexture class declaration
+  void GenerateMipmap() const;
+
+// in texture.cpp
+void CubeTexture::GenerateMipmap() const {
+  Bind();
+  glTexParameteri(GL_TEXTURE_CUBE_MAP,
+    GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP,
+    GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+}
+```
+
+---
+
+## Specular IBL
+
+---
+
+## Specular IBL
+
 - pre-filtering HDR environment map
 - pre-filter convolution artifacts
 - pre-computing BRDF

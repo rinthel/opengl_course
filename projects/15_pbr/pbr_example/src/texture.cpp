@@ -193,3 +193,10 @@ void CubeTexture::Init(int width, int height, int format, uint32_t type) {
             m_width, m_height, 0, imageFormat, m_type, nullptr);
     }
 }
+
+void CubeTexture::GenerateMipmap() const {
+    Bind();
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+}
