@@ -132,7 +132,7 @@ void Context::Render() {
     m_skyboxProgram->SetUniform("projection", projection);
     m_skyboxProgram->SetUniform("view", view);
     m_skyboxProgram->SetUniform("cubeMap", 0);
-    m_hdrCubeMap->Bind();
+    m_diffuseIrradianceMap->Bind();
     m_box->Draw(m_skyboxProgram.get());
     glDepthFunc(GL_LESS);
 }
@@ -197,6 +197,25 @@ bool Context::Init() {
         m_sphericalMapProgram->SetUniform("transform", projection * views[i]);
         m_box->Draw(m_sphericalMapProgram.get());
     }
+
+    m_diffuseIrradianceProgram = Program::Create(
+        "./shader/skybox_hdr.vs", "./shader/diffuse_irradiance.fs");
+    m_diffuseIrradianceMap = CubeTexture::Create(64, 64, GL_RGB16F, GL_FLOAT);
+    cubeFramebuffer = CubeFramebuffer::Create(m_diffuseIrradianceMap);
+    glDepthFunc(GL_LEQUAL);
+    m_diffuseIrradianceProgram->Use();
+    m_diffuseIrradianceProgram->SetUniform("projection", projection);
+    m_diffuseIrradianceProgram->SetUniform("cubeMap", 0);
+    m_hdrCubeMap->Bind();
+    glViewport(0, 0, 64, 64);
+    for (int i = 0; i < (int)views.size(); i++) {
+        cubeFramebuffer->Bind(i);
+        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        m_diffuseIrradianceProgram->SetUniform("view", views[i]);
+        m_box->Draw(m_diffuseIrradianceProgram.get());
+    }
+    glDepthFunc(GL_LESS);
 
     Framebuffer::BindToDefault();
     glViewport(0, 0, m_width, m_height);

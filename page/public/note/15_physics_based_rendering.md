@@ -1965,6 +1965,150 @@ void main() {
 <div>
 <img src="/opengl_course/note/images/15_pbr_hdr_map_skybox_result.png" width="70%"/>
 </div>
+
+---
+
+## Cubemap Convolution
+
+- Cubemap으로부터 convolution을 통한 diffuse irradiance 계산
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_figure.png" width="40%"/>
+</div>
+
+---
+
+## Cubemap Convolution
+
+- 구면 좌표계를 이용한 적분식으로의 변경
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_spherical_figure.png" width="50%"/>
+</div>
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_spherical.png" width="80%"/>
+</div>
+
+---
+
+## Cubemap Convolution
+
+- `shader/diffuse_irradiance.fs` 추가
+
+```glsl
+#version 330 core
+out vec4 fragColor;
+in vec3 localPos;
+
+uniform samplerCube cubeMap;
+const float PI = 3.14159265359;
+
+void main() {
+  // the sample direction equals the hemisphere’s orientation
+  vec3 normal = normalize(localPos);
+  vec3 up = vec3(0.0, 1.0, 0.0);
+  vec3 right = normalize(cross(up, normal)); 
+  up = cross(normal, right);
+
+  vec3 irradiance = vec3(0.0);
+  float sampleDelta = 0.025;
+  float nrSamples = 0.0;
+  for(float phi = 0.0; phi < 2.0 * PI; phi += sampleDelta) {
+    for(float theta = 0.0; theta < 0.5 * PI; theta += sampleDelta) {
+      // spherical to cartesian (in tangent space)
+      vec3 tangentSample = vec3(
+        sin(theta) * cos(phi),
+        sin(theta) * sin(phi),
+        cos(theta));
+      // tangent space to world
+      vec3 sampleVec = tangentSample.x * right +
+        tangentSample.y * up +
+        tangentSample.z * normal;
+      irradiance += texture(cubeMap, sampleVec).rgb * cos(theta) * sin(theta);
+      nrSamples++;
+    }
+  }
+  irradiance = PI * irradiance * (1.0 / float(nrSamples));
+
+  fragColor = vec4(irradiance, 1.0);
+}
+```
+
+---
+
+## Cubemap Convolution
+
+- `Context`에 멤버 추가
+
+```cpp [5-6]
+  TextureUPtr m_hdrMap;
+  ProgramUPtr m_sphericalMapProgram;
+  CubeTexturePtr m_hdrCubeMap;
+  ProgramUPtr m_skyboxProgram;
+  CubeTexturePtr m_diffuseIrradianceMap;
+  ProgramUPtr m_diffuseIrradianceProgram;
+```
+
+---
+
+## Cubemap Convolution
+
+- `Context::Init()`에서 HDR cubemap convolution 렌더링 코드 추가
+
+```cpp []
+  m_diffuseIrradianceProgram = Program::Create(
+      "./shader/skybox_hdr.vs", "./shader/diffuse_irradiance.fs");
+  m_diffuseIrradianceMap = CubeTexture::Create(64, 64, GL_RGB16F, GL_FLOAT);
+  cubeFramebuffer = CubeFramebuffer::Create(m_diffuseIrradianceMap);
+  glDepthFunc(GL_LEQUAL);
+  m_diffuseIrradianceProgram->Use();
+  m_diffuseIrradianceProgram->SetUniform("projection", projection);
+  m_diffuseIrradianceProgram->SetUniform("cubeMap", 0);
+  m_hdrCubeMap->Bind();
+  glViewport(0, 0, 64, 64);
+  for (int i = 0; i < (int)views.size(); i++) {
+      cubeFramebuffer->Bind(i);
+      glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      m_diffuseIrradianceProgram->SetUniform("view", views[i]);
+      m_box->Draw(m_diffuseIrradianceProgram.get());
+  }
+  glDepthFunc(GL_LESS);
+
+  Framebuffer::BindToDefault();
+  glViewport(0, 0, m_width, m_height);
+```
+
+---
+
+## Cubemap Convolution
+
+- `Context::Render()`에서 skybox를 HDR cubemap 대신
+  diffuse irradiance map으로 대체하여 결과 확인
+
+```cpp [6]
+  glDepthFunc(GL_LEQUAL);
+  m_skyboxProgram->Use();
+  m_skyboxProgram->SetUniform("projection", projection);
+  m_skyboxProgram->SetUniform("view", view);
+  m_skyboxProgram->SetUniform("cubeMap", 0);
+  m_diffuseIrradianceMap->Bind();
+  m_box->Draw(m_skyboxProgram.get());
+  glDepthFunc(GL_LESS);
+```
+
+---
+
+## Cubemap Convolution
+
+- 빌드 및 결과
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_diffuse_irradiance_skybox_result.png" width="80%"/>
+</div>
+
+
 ---
 
 ## Diffuse Irradiance
