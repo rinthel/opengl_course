@@ -38,16 +38,27 @@ CLASS_PTR(CubeTexture)
 class CubeTexture {
 public:
     static CubeTextureUPtr CreateFromImages(const std::vector<Image*> images);
+    static CubeTextureUPtr Create(int width, int height, uint32_t format, uint32_t type = GL_UNSIGNED_BYTE);
     ~CubeTexture();
 
     const uint32_t Get() const { return m_texture; }
     void Bind() const;
 
+    int GetWidth() const { return m_width; }
+    int GetHeight() const { return m_height; }
+    uint32_t GetFormat() const { return m_format; }
+    uint32_t GetType() const { return m_type; }
+
 private:
     CubeTexture() {}
     bool InitFromImages(const std::vector<Image*> images);
+    void Init(int width, int height, int format, uint32_t type);
 
     uint32_t m_texture { 0 };
+    int m_width { 0 };
+    int m_height { 0 };
+    uint32_t m_format { GL_RGBA };
+    uint32_t m_type { GL_UNSIGNED_BYTE };
 };
 
 #endif // __TEXTURE_H__

@@ -65,3 +65,59 @@ bool Framebuffer::InitWithColorAttachments(const std::vector<TexturePtr>& colorA
 
     return true;
 }
+
+CubeFramebufferUPtr CubeFramebuffer::Create(const CubeTexturePtr colorAttachment) {
+    auto framebuffer = CubeFramebufferUPtr(new CubeFramebuffer());
+    if (!framebuffer->InitWithColorAttachment(colorAttachment))
+        return nullptr;
+    return std::move(framebuffer);
+
+}
+
+CubeFramebuffer::~CubeFramebuffer() {
+    if (m_depthStencilBuffer) {
+        glDeleteRenderbuffers(1, &m_depthStencilBuffer);
+    }
+    if (m_framebuffer) {
+        glDeleteFramebuffers(1, &m_framebuffer);
+    }
+}
+
+void CubeFramebuffer::Bind(int cubeIndex) const {
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+        GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + cubeIndex,
+        m_colorAttachment->Get(), 0);
+}
+
+bool CubeFramebuffer::InitWithColorAttachment(const CubeTexturePtr& colorAttachment) {
+    m_colorAttachment = colorAttachment;
+    glGenFramebuffers(1, &m_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+        GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+        m_colorAttachment->Get(), 0);
+
+    int width = m_colorAttachment->GetWidth();
+    int height = m_colorAttachment->GetHeight();
+
+    glGenRenderbuffers(1, &m_depthStencilBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    glFramebufferRenderbuffer(
+        GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+        GL_RENDERBUFFER, m_depthStencilBuffer);
+
+    auto result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (result != GL_FRAMEBUFFER_COMPLETE) {
+        SPDLOG_ERROR("failed to create framebuffer: 0x{:04x}", result);
+        return false;
+    }
+
+    Framebuffer::BindToDefault();
+
+    return true;
+}

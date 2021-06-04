@@ -1539,6 +1539,434 @@ void main() {
 
 ---
 
+## Equirectangular-to-Cube
+
+- `CubeTexture` 클래스 리팩토링
+  - 이미지 없이 특정 픽셀 타입의 빈 텍스처 생성
+
+```cpp [6-7, 13-16, 21, 24-27]
+CLASS_PTR(CubeTexture)
+class CubeTexture {
+public:
+  static CubeTextureUPtr CreateFromImages(
+    const std::vector<Image*> images);
+  static CubeTextureUPtr Create(int width, int height,
+    uint32_t format, uint32_t type = GL_UNSIGNED_BYTE);
+  ~CubeTexture();
+
+  const uint32_t Get() const { return m_texture; }
+  void Bind() const;
+
+  int GetWidth() const { return m_width; }
+  int GetHeight() const { return m_height; }
+  uint32_t GetFormat() const { return m_format; }
+  uint32_t GetType() const { return m_type; }
+
+private:
+  CubeTexture() {}
+  bool InitFromImages(const std::vector<Image*> images);
+  void Init(int width, int height, int format, uint32_t type);
+
+  uint32_t m_texture { 0 };
+  int m_width { 0 };
+  int m_height { 0 };
+  uint32_t m_format { GL_RGBA };
+  uint32_t m_type { GL_UNSIGNED_BYTE };
+};
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeTexture` 클래스 리팩토링
+  - internal format으로부터 image format 유추하는 기능을 별도의 함수로 변환하자
+
+```cpp
+static GLenum GetImageFormat(uint32_t internalFormat) {
+  GLenum imageFormat = GL_RGBA;
+  if (internalFormat == GL_DEPTH_COMPONENT) {
+    imageFormat = GL_DEPTH_COMPONENT;        
+  }
+  else if (internalFormat == GL_RGB ||
+    internalFormat == GL_RGB16F ||
+    internalFormat == GL_RGB32F) {
+    imageFormat = GL_RGB;
+  }
+  else if (internalFormat == GL_RG ||
+    internalFormat == GL_RG16F ||
+    internalFormat == GL_RG32F) {
+    imageFormat = GL_RG;
+  }
+  else if (internalFormat == GL_RED ||
+    internalFormat == GL_R ||
+    internalFormat == GL_R16F ||
+    internalFormat == GL_R32F) {
+    imageFormat = GL_RED;
+  }
+  return imageFormat;
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeTexture` 클래스 리팩토링
+  - internal format으로부터 image format 유추하는 기능을 별도의 함수로 변환하자
+
+```cpp [8]
+void Texture::SetTextureFormat(int width, int height,
+  uint32_t format, uint32_t type) {
+  m_width = width;
+  m_height = height;
+  m_format = format;
+  m_type = type;
+
+  GLenum imageFormat = GetImageFormat(m_format);
+  glTexImage2D(GL_TEXTURE_2D, 0, m_format,
+    m_width, m_height, 0,
+    imageFormat, m_type,
+    nullptr);
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeTexture` 클래스 리팩토링
+
+```cpp
+CubeTextureUPtr CubeTexture::Create(int width, int height,
+  uint32_t format, uint32_t type) {
+  auto texture = CubeTextureUPtr(new CubeTexture());
+  texture->Init(width, height, format, type);
+  return std::move(texture);
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeTexture` 클래스 리팩토링
+
+```cpp [11-14, 26-27]
+bool CubeTexture::InitFromImages(const std::vector<Image*> images) {
+  glGenTextures(1, &m_texture);
+  Bind();
+
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+  m_width = images[0]->GetWidth();
+  m_height = images[0]->GetHeight();
+  m_type = images[0]->GetBytePerChannel() == 4 ? GL_FLOAT : GL_UNSIGNED_BYTE;
+  m_format = images[0]->GetBytePerChannel() == 4 ? GL_RGB16F : GL_RGB;
+
+  for (uint32_t i = 0; i < (uint32_t)images.size(); i++) {
+    auto image = images[i];
+    GLenum format = GL_RGBA;
+    switch (image->GetChannelCount()) {
+      default: break;
+      case 1: format = GL_RED; break;
+      case 2: format = GL_RG; break;
+      case 3: format = GL_RGB; break;
+    }
+
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, m_format,
+      m_width, m_height, 0, format, m_type, image->GetData());
+  }
+
+  return true;
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeTexture` 클래스 리팩토링
+
+```cpp
+void CubeTexture::Init(int width, int height, int format, uint32_t type) {
+  glGenTextures(1, &m_texture);
+  Bind();
+
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+  m_width = width;
+  m_height = height;
+  m_type = type;
+  m_format = format;
+  GLenum imageFormat = GetImageFormat(m_format);
+
+  for (uint32_t i = 0; i < 6; i++) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, m_format,
+      m_width, m_height, 0, imageFormat, m_type, nullptr);
+  }
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeFramebuffer` 클래스 추가
+  - 큐브 맵을 color attachment로 사용하는 framebuffer
+
+```cpp
+CLASS_PTR(CubeFramebuffer);
+class CubeFramebuffer {
+public:
+  static CubeFramebufferUPtr Create(const CubeTexturePtr colorAttachment);
+  ~CubeFramebuffer();
+
+  const uint32_t Get() const { return m_framebuffer; }
+  void Bind(int cubeIndex = 0) const;
+  const CubeTexturePtr GetColorAttachment() const { return m_colorAttachment; }
+
+private:
+  CubeFramebuffer() {}
+  bool InitWithColorAttachment(const CubeTexturePtr& colorAttachment);
+
+  uint32_t m_framebuffer { 0 };
+  uint32_t m_depthStencilBuffer { 0 };
+  CubeTexturePtr m_colorAttachment;
+};
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeFramebuffer` 클래스 메소드 구현
+
+```cpp
+CubeFramebufferUPtr CubeFramebuffer::Create(const CubeTexturePtr colorAttachment) {
+  auto framebuffer = CubeFramebufferUPtr(new CubeFramebuffer());
+  if (!framebuffer->InitWithColorAttachment(colorAttachment))
+    return nullptr;
+  return std::move(framebuffer);
+}
+
+CubeFramebuffer::~CubeFramebuffer() {
+  if (m_depthStencilBuffer) {
+    glDeleteRenderbuffers(1, &m_depthStencilBuffer);
+  }
+  if (m_framebuffer) {
+    glDeleteFramebuffers(1, &m_framebuffer);
+  }
+}
+
+void CubeFramebuffer::Bind(int cubeIndex) const {
+  glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+  glFramebufferTexture2D(GL_FRAMEBUFFER,
+    GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + cubeIndex,
+    m_colorAttachment->Get(), 0);
+}
+
+bool CubeFramebuffer::InitWithColorAttachment(const CubeTexturePtr& colorAttachment) {
+  m_colorAttachment = colorAttachment;
+  glGenFramebuffers(1, &m_framebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+
+  glFramebufferTexture2D(GL_FRAMEBUFFER,
+    GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+    m_colorAttachment->Get(), 0);
+
+  int width = m_colorAttachment->GetWidth();
+  int height = m_colorAttachment->GetHeight();
+
+  glGenRenderbuffers(1, &m_depthStencilBuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, m_depthStencilBuffer);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+  glFramebufferRenderbuffer(
+    GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+    GL_RENDERBUFFER, m_depthStencilBuffer);
+
+  auto result = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (result != GL_FRAMEBUFFER_COMPLETE) {
+    SPDLOG_ERROR("failed to create framebuffer: 0x{:04x}", result);
+    return false;
+  }
+
+  Framebuffer::BindToDefault();
+
+  return true;
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `CubeFramebuffer` 클래스 디자인 이슈
+  - 6개의 framebuffer를 만들어서 각각마다 하나의
+    color attachment를 갖도록 하기
+  - 하나의 framebuffer에 cubemap의 각 면을
+    color attachment 0 ~ 6에 설정하기
+  - 하나의 framebuffer에 cubemap의 각 면을
+    color attachment 0번에만 바꿔가며 설정하기
+
+---
+
+## Equirectangular-to-Cube
+
+- `Context` 클래스에 큐브맵 멤버 추가
+
+```cpp [3]
+  TextureUPtr m_hdrMap;
+  ProgramUPtr m_sphericalMapProgram;
+  CubeTexturePtr m_hdrCubeMap;
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Context::Init()`에서 큐브맵의 각 면마다 HDR 이미지 렌더링
+
+```cpp
+  m_hdrCubeMap = CubeTexture::Create(512, 512, GL_RGB16F, GL_FLOAT);
+  auto cubeFramebuffer = CubeFramebuffer::Create(m_hdrCubeMap);
+  auto projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+  std::vector<glm::mat4> views = {
+    glm::lookAt(glm::vec3(0.0f),
+      glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+    glm::lookAt(glm::vec3(0.0f),
+      glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+    glm::lookAt(glm::vec3(0.0f),
+      glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+    glm::lookAt(glm::vec3(0.0f),
+      glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
+    glm::lookAt(glm::vec3(0.0f),
+      glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+    glm::lookAt(glm::vec3(0.0f),
+      glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+  };
+  m_sphericalMapProgram->Use();
+  m_sphericalMapProgram->SetUniform("tex", 0);
+  m_hdrMap->Bind();
+  glViewport(0, 0, 512, 512);
+  for (int i = 0; i < (int)views.size(); i++) {
+      cubeFramebuffer->Bind(i);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      m_sphericalMapProgram->SetUniform("transform", projection * views[i]);
+      m_box->Draw(m_sphericalMapProgram.get());
+  }
+
+  Framebuffer::BindToDefault();
+  glViewport(0, 0, m_width, m_height);
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `shader/skybox_hdr.vs` 추가
+  - `shader/skybox.vs`와 거의 유사
+
+```glsl
+#version 330 core
+
+layout (location = 0) in vec3 aPos;
+out vec3 localPos;
+
+uniform mat4 projection;
+uniform mat4 view;
+
+void main() {
+  localPos = aPos;
+  mat4 rotView = mat4(mat3(view)); // remove translation
+  vec4 clipPos = projection * rotView * vec4(localPos, 1.0);
+  gl_Position = clipPos.xyww;
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- skybox 쉐이더 구현 트릭
+  - `mat4 rotView = mat4(mat3(view));`
+    - view 행렬이 가지고 있는 translation 부분이 사라지도록 만듬
+  - `clipPos.xyww`
+    - fragment shader에서 z값이 항상 1이 되도록 만듬
+
+---
+
+## Equirectangular-to-Cube
+
+- `shader/skybox_hdr.fs` 추가
+
+```glsl
+#version 330 core
+
+out vec4 fragColor;
+in vec3 localPos;
+
+uniform samplerCube cubeMap;
+
+void main() {
+  vec3 envColor = texture(cubeMap, localPos).rgb;
+  envColor = envColor / (envColor + vec3(1.0));   // reinhard
+  envColor = pow(envColor, vec3(1.0/2.2));    // to sRGB
+  fragColor = vec4(envColor, 1.0);
+}
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Context` 클래스에 skybox 렌더링용 프로그램 멤버 추가
+
+```cpp [4]
+  TextureUPtr m_hdrMap;
+  ProgramUPtr m_sphericalMapProgram;
+  CubeTexturePtr m_hdrCubeMap;
+  ProgramUPtr m_skyboxProgram;
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- `Context::Render()`에서 HDR skybox 렌더링
+
+```cpp
+  glDepthFunc(GL_LEQUAL);
+  m_skyboxProgram->Use();
+  m_skyboxProgram->SetUniform("projection", projection);
+  m_skyboxProgram->SetUniform("view", view);
+  m_skyboxProgram->SetUniform("cubeMap", 0);
+  m_hdrCubeMap->Bind();
+  m_box->Draw(m_skyboxProgram.get());
+  glDepthFunc(GL_LESS);
+```
+
+---
+
+## Equirectangular-to-Cube
+
+- 빌드 및 실행
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_hdr_map_skybox_result.png" width="70%"/>
+</div>
+---
+
 ## Diffuse Irradiance
 
 - PBR and HDR
