@@ -42,7 +42,7 @@ private:
         glm::vec3 color { glm::vec3(1.0f, 1.0f, 1.0f) };
     };
     std::vector<Light> m_lights;
-    bool m_useDiffuseIrradiance { true };
+    bool m_useIBL { true };
 
     struct Material {
         glm::vec3 albedo { glm::vec3(1.0f, 1.0f, 1.0f) };

@@ -2772,7 +2772,84 @@ void main() {
 
 ## IBL Reflectance
 
-- 
+- `shader/pbr.fs` 수정
+
+```glsl
+uniform samplerCube irradianceMap;
+uniform samplerCube preFilteredMap;
+uniform sampler2D brdfLookupTable;
+uniform int useIBL;
+
+// ... after direct lighting computation
+  vec3 ambient = vec3(0.03) * albedo * ao;
+  if (useIBL == 1) {
+    vec3 kS = FresnelSchlickRoughness(dotNV, F0, roughness);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;
+
+    vec3 irradiance = texture(irradianceMap, fragNormal).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    vec3 R = reflect(-viewDir, fragNormal);
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 preFilteredColor = textureLod(preFilteredMap, R,
+        roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 envBrdf = texture(brdfLookupTable, vec2(dotNV, roughness)).rg;
+    vec3 specular = preFilteredColor * (kS * envBrdf.x + envBrdf.y);
+
+    ambient = (kD * diffuse + specular) * ao;
+  }
+  vec3 color = ambient + outRadiance;
+```
+
+---
+
+## IBL Reflectance
+
+- `shader/skybox_hdr.fs`를 다시 원복
+- `Context::m_useDiffuseIrradiance`의 이름을 `m_useIBL`로 변경
+- `Context::Render()`에서 준비된 pre-filtered light map과
+  BRDF lookup table을 PBR 렌더링때 uniform으로 전달
+
+---
+
+## IBL Reflectance
+
+```cpp [6-16]
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_pbrProgram->Use();
+  m_pbrProgram->SetUniform("viewPos", m_cameraPos);
+  m_pbrProgram->SetUniform("material.ao", m_material.ao);
+  m_pbrProgram->SetUniform("material.albedo", m_material.albedo);
+  m_pbrProgram->SetUniform("useIBL", m_useIBL ? 1 : 0);
+  m_pbrProgram->SetUniform("irradianceMap", 0);
+  m_pbrProgram->SetUniform("preFilteredMap", 1);
+  m_pbrProgram->SetUniform("brdfLookupTable", 2);
+  glActiveTexture(GL_TEXTURE0);
+  m_diffuseIrradianceMap->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_preFilteredMap->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_brdfLookupMap->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  for (size_t i = 0; i < m_lights.size(); i++) {
+    auto posName = fmt::format("lights[{}].position", i);
+    auto colorName = fmt::format("lights[{}].color", i);
+    m_pbrProgram->SetUniform(posName, m_lights[i].position);
+    m_pbrProgram->SetUniform(colorName, m_lights[i].color);
+  }
+  DrawScene(view, projection, m_pbrProgram.get());
+```
+
+---
+
+## IBL Reflectance
+
+- 빌드 및 결과
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_final_result.png" width="80%"/>
+</div>
 
 ---
 

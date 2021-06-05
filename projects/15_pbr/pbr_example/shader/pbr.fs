@@ -23,7 +23,9 @@ struct Material {
 uniform Material material;
 
 uniform samplerCube irradianceMap;
-uniform int useIrradiance;
+uniform samplerCube preFilteredMap;
+uniform sampler2D brdfLookupTable;
+uniform int useIBL;
 
 const float PI = 3.14159265359;
 
@@ -105,12 +107,22 @@ void main() {
     }
 
     vec3 ambient = vec3(0.03) * albedo * ao;
-    if (useIrradiance == 1) {
+    if (useIBL == 1) {
         vec3 kS = FresnelSchlickRoughness(dotNV, F0, roughness);
         vec3 kD = 1.0 - kS;
+        kD *= 1.0 - metallic;
+
         vec3 irradiance = texture(irradianceMap, fragNormal).rgb;
         vec3 diffuse = irradiance * albedo;
-        ambient = (kD * diffuse) * ao;
+
+        vec3 R = reflect(-viewDir, fragNormal);
+        const float MAX_REFLECTION_LOD = 4.0;
+        vec3 preFilteredColor = textureLod(preFilteredMap, R,
+            roughness * MAX_REFLECTION_LOD).rgb;
+        vec2 envBrdf = texture(brdfLookupTable, vec2(dotNV, roughness)).rg;
+        vec3 specular = preFilteredColor * (kS * envBrdf.x + envBrdf.y);
+
+        ambient = (kD * diffuse + specular) * ao;
     }
     vec3 color = ambient + outRadiance;
 
