@@ -2507,9 +2507,90 @@ void main() {
 - 빌드 및 결과
   - material.roughness 값을 바꾸면서 결과 관찰
   - cube의 연결 부분에 경계선이 눈에 띔
+  - 밝은 점 패턴이 눈에 띄는 현상
 
 <div>
-<img src="/opengl_course/note/images/15_pbr_prefiltered_light_seam.png" width="67%"/>
+<img src="/opengl_course/note/images/15_pbr_prefiltered_light_seam.png" width="60%"/>
+</div>
+
+---
+
+## Prefiltered Light Map
+
+- 경계선 없애기
+  - `Context::Init()`에서 `GL_TEXTURE_CUBE_MAP_SEAMLESS` 활성화
+
+```cpp [4]
+bool Context::Init() {
+  glEnable(GL_MULTISAMPLE);
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+```
+
+---
+
+## Prefiltered Light Map
+
+- 점 패턴 없애기
+  - roughness에 따라 mipmap으로부터 샘플링
+
+```glsl [1-10, 14-23]
+float DistributionGGX(vec3 normal, vec3 halfDir, float roughness) {
+  float a = roughness * roughness;
+  float a2 = a * a;
+  float dotNH = max(dot(normal, halfDir), 0.0);
+  float dotNH2 = dotNH * dotNH;
+
+  float num = a2;
+  float denom = (dotNH2 * (a2 - 1.0) + 1.0);
+  return a2 / (PI * denom * denom);
+}
+
+// ... on computing convolution
+if(NdotL > 0.0) {
+  float D = DistributionGGX(N, H, roughness);
+  float NdotH = max(dot(N, H), 0.0);
+  float HdotV = max(dot(H, V), 0.0);
+  float pdf = (D * NdotH / (4.0 * HdotV)) + 0.0001;
+  float resolution = 512.0; // resolution of source cubemap (per face)
+  float saTexel = 4.0 * PI / (6.0 * resolution * resolution);
+  float saSample = 1.0 / (float(SAMPLE_COUNT) * pdf + 0.0001);
+  float mipLevel = roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel);
+
+  prefilteredColor += textureLod(cubeMap, L, mipLevel).rgb * NdotL;
+  totalWeight += NdotL;
+}
+```
+
+---
+
+## Prefiltered Light Map
+
+- 점 패턴 없애기
+  - `Context::Init()`에서 HDR cube map 생성 후 mipmap 생성
+
+```cpp [9]
+  m_hdrMap->Bind();
+  glViewport(0, 0, 512, 512);
+  for (int i = 0; i < (int)views.size(); i++) {
+    cubeFramebuffer->Bind(i);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_sphericalMapProgram->SetUniform("transform", projection * views[i]);
+    m_box->Draw(m_sphericalMapProgram.get());
+  }
+  m_hdrCubeMap->GenerateMipmap();
+```
+
+---
+
+## Prefiltered Light Map
+
+- 빌드 및 결과
+  - 경계선이 사라지고 점 패턴이 사라진 부드러운 prefiltered light map
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_prefiltered_light_seamless.png" width="60%"/>
 </div>
 
 ---

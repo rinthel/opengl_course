@@ -140,6 +140,7 @@ void Context::Render() {
 bool Context::Init() {
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
     m_box = Mesh::CreateBox();
@@ -188,6 +189,7 @@ bool Context::Init() {
         m_sphericalMapProgram->SetUniform("transform", projection * views[i]);
         m_box->Draw(m_sphericalMapProgram.get());
     }
+    m_hdrCubeMap->GenerateMipmap();
 
     m_diffuseIrradianceProgram = Program::Create(
         "./shader/skybox_hdr.vs", "./shader/diffuse_irradiance.fs");
