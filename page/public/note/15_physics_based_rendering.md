@@ -2275,7 +2275,15 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
 
 ---
 
-## Prefiltered Light
+## Specular IBL
+
+- Pre-filtered light map
+  - Mipmap 형태로 roughness에 따라 계산을 달리하여 저장
+  - Monte-Carlo integration 방식의 계산
+
+---
+
+## Prefiltered Light map
 
 - `CubeTexture` 클래스에 mipmap 생성 기능 추가
 
@@ -2296,7 +2304,213 @@ void CubeTexture::GenerateMipmap() const {
 
 ---
 
-## Specular IBL
+## Prefiltered Light map
+
+- `CubeFramebuffer` 클래스에 mipmap 레벨 설정 기능 추가
+
+```cpp
+// in CubeTexture class declaration
+  static CubeFramebufferUPtr Create(
+    const CubeTexturePtr colorAttachment, uint32_t mipLevel = 0);
+  // ...
+  bool InitWithColorAttachment(
+    const CubeTexturePtr& colorAttachment, uint32_t mipLevel);
+  // ...
+  uint32_t m_mipLevel { 0 };
+
+// in CubeFramebuffer::Bind()
+  glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+  glFramebufferTexture2D(GL_FRAMEBUFFER,
+    GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + cubeIndex,
+    m_colorAttachment->Get(), m_mipLevel);
+
+// in CubeFramebuffer::InitWithColorAttachment()
+  m_colorAttachment = colorAttachment;
+  m_mipLevel = mipLevel;
+  glGenFramebuffers(1, &m_framebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+
+  glFramebufferTexture2D(GL_FRAMEBUFFER,
+    GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+    m_colorAttachment->Get(), m_mipLevel);
+
+  int width = m_colorAttachment->GetWidth() >> m_mipLevel;
+  int height = m_colorAttachment->GetHeight() >> m_mipLevel;
+```
+
+---
+
+## Prefiltered Light map
+
+- `shader/prefiltered_light.fs` 추가
+
+```cpp
+#version 330 core
+
+out vec4 fragColor;
+in vec3 localPos;
+
+uniform samplerCube cubeMap;
+uniform float roughness;
+
+const float PI = 3.14159265359;
+
+float RadicalInverse_VdC(uint bits) {
+  bits = (bits << 16u) | (bits >> 16u); 
+  bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u); 
+  bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u); 
+  bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u); 
+  bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+  return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+vec2 Hammersley(uint i, uint N) {
+  return vec2(float(i)/float(N), RadicalInverse_VdC(i));
+}
+
+vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+  float a = roughness*roughness;
+  float phi = 2.0 * PI * Xi.x;
+  float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+  float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+
+  // from spherical coordinates to cartesian coordinates
+  vec3 H;
+  H.x = cos(phi) * sinTheta;
+  H.y = sin(phi) * sinTheta;
+  H.z = cosTheta;
+
+  // from tangent-space vector to world-space sample vector
+  vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+  vec3 tangent = normalize(cross(up, N));
+  vec3 bitangent = cross(N, tangent);
+
+  vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+  return normalize(sampleVec);
+}
+
+void main() {
+  vec3 N = normalize(localPos);
+  vec3 R = N;
+  vec3 V = R;
+
+  const uint SAMPLE_COUNT = 1024u;
+  float totalWeight = 0.0;
+  vec3 prefilteredColor = vec3(0.0);
+  for(uint i = 0u; i < SAMPLE_COUNT; ++i) {
+    vec2 Xi = Hammersley(i, SAMPLE_COUNT);
+    vec3 H = ImportanceSampleGGX(Xi, N, roughness);
+    vec3 L = normalize(2.0 * dot(V, H) * H - V);
+    float NdotL = max(dot(N, L), 0.0);
+    if(NdotL > 0.0) {
+      prefilteredColor += texture(cubeMap, L).rgb * NdotL;
+      totalWeight += NdotL;
+    }
+  }
+  prefilteredColor = prefilteredColor / totalWeight;
+
+  fragColor = vec4(prefilteredColor, 1.0);
+}
+```
+
+---
+
+## Prefiltered Light map
+
+- `Context` 클래스에 prefiltered light map을 위한 프로그램 및 텍스처 멤버 추가
+
+``` cpp [7-8]
+  TextureUPtr m_hdrMap;
+  ProgramUPtr m_sphericalMapProgram;
+  CubeTexturePtr m_hdrCubeMap;
+  ProgramUPtr m_skyboxProgram;
+  CubeTexturePtr m_diffuseIrradianceMap;
+  ProgramUPtr m_diffuseIrradianceProgram;
+  CubeTexturePtr m_preFilteredMap;
+  ProgramUPtr m_preFilteredProgram;
+```
+
+---
+
+## Prefiltered Light map
+
+- `Context::Init()`에서 prefiltered light map 계산
+
+```cpp
+  const uint32_t maxMipLevels = 5;
+  glDepthFunc(GL_LEQUAL);
+  m_preFilteredProgram = Program::Create(
+    "./shader/skybox_hdr.vs", "./shader/prefiltered_light.fs");
+  m_preFilteredMap = CubeTexture::Create(128, 128, GL_RGB16F, GL_FLOAT);
+  m_preFilteredMap->GenerateMipmap();
+  m_preFilteredProgram->Use();
+  m_preFilteredProgram->SetUniform("projection", projection);
+  m_preFilteredProgram->SetUniform("cubeMap", 0);
+  m_hdrCubeMap->Bind();
+  for (uint32_t mip = 0; mip < maxMipLevels; mip++) {
+    auto framebuffer = CubeFramebuffer::Create(m_preFilteredMap, mip);
+    uint32_t mipWidth = 128 >> mip;
+    uint32_t mipHeight = 128 >> mip;
+    glViewport(0, 0, mipWidth, mipHeight);
+
+    float roughness = (float)mip / (float)(maxMipLevels - 1);
+    m_preFilteredProgram->SetUniform("roughness", roughness);
+    for (uint32_t i = 0; i < (int)views.size(); i++) {
+      m_preFilteredProgram->SetUniform("view", views[i]);
+      framebuffer->Bind(i);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      m_box->Draw(m_preFilteredProgram.get());   
+    }
+  }
+  glDepthFunc(GL_LESS);
+```
+
+---
+
+## Prefiltered Light Map
+
+- `shader/skybox_hdr.fs`를 임시 수정
+  - 모든 mip level의 결과를 관찰하기 위함
+
+```glsl [2, 5-6]
+uniform samplerCube cubeMap;
+uniform float roughness;
+
+void main() {
+  // vec3 envColor = texture(cubeMap, localPos).rgb;
+  vec3 envColor = textureLod(cubeMap, localPos, roughness * 4).rgb;
+```
+
+---
+
+## Prefiltered Light Map
+
+- `Context::Render()`의 skybox 그리는 코드 임시 수정
+
+```cpp [3, 7-8]
+  glDepthFunc(GL_LEQUAL);
+  m_skyboxProgram->Use();
+  m_skyboxProgram->SetUniform("roughness", m_material.roughness);
+  m_skyboxProgram->SetUniform("projection", projection);
+  m_skyboxProgram->SetUniform("view", view);
+  m_skyboxProgram->SetUniform("cubeMap", 0);
+  // m_hdrCubeMap->Bind()
+  m_preFilteredMap->Bind();
+  m_box->Draw(m_skyboxProgram.get());
+  glDepthFunc(GL_LESS);
+```
+
+---
+
+## Prefiltered Light Map
+
+- 빌드 및 결과
+  - material.roughness 값을 바꾸면서 결과 관찰
+  - cube의 연결 부분에 경계선이 눈에 띔
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_prefiltered_light_seam.png" width="67%"/>
+</div>
 
 ---
 

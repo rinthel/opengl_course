@@ -58,7 +58,6 @@ private:
     ProgramUPtr m_skyboxProgram;
     CubeTexturePtr m_diffuseIrradianceMap;
     ProgramUPtr m_diffuseIrradianceProgram;
-
     CubeTexturePtr m_preFilteredMap;
     ProgramUPtr m_preFilteredProgram;
 
