@@ -60,6 +60,8 @@ private:
     ProgramUPtr m_diffuseIrradianceProgram;
     CubeTexturePtr m_preFilteredMap;
     ProgramUPtr m_preFilteredProgram;
+    TexturePtr m_brdfLookupMap;
+    ProgramUPtr m_brdfLookupProgram;
 
     // screen size
     int m_width {640};

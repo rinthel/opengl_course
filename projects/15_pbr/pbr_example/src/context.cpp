@@ -92,6 +92,9 @@ void Context::Render() {
             ImGui::SliderFloat("mat.ao", &m_material.ao, 0.0f, 1.0f);
         }
         ImGui::Checkbox("use irradiance", &m_useDiffuseIrradiance);
+
+        float w = ImGui::GetContentRegionAvailWidth();
+        ImGui::Image((ImTextureID)m_brdfLookupMap->Get(), ImVec2(w, w));
     }
     ImGui::End();
 
@@ -236,6 +239,18 @@ bool Context::Init() {
         }
     }
     glDepthFunc(GL_LESS);
+
+    m_brdfLookupProgram = Program::Create(
+        "./shader/brdf_lookup.vs", "./shader/brdf_lookup.fs");
+    m_brdfLookupMap = Texture::Create(512, 512, GL_RG16F, GL_FLOAT);
+    auto lookupFramebuffer = Framebuffer::Create({ m_brdfLookupMap });
+    lookupFramebuffer->Bind();
+    glViewport(0, 0, 512, 512);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_brdfLookupProgram->Use();
+    m_brdfLookupProgram->SetUniform("transform",
+        glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, -2.0f, 2.0f)));
+    m_plane->Draw(m_brdfLookupProgram.get());
 
     Framebuffer::BindToDefault();
     glViewport(0, 0, m_width, m_height);
