@@ -2595,12 +2595,274 @@ if(NdotL > 0.0) {
 
 ---
 
-## Specular IBL
+## BRDF Lookup Table
 
-- pre-filtering HDR environment map
-- pre-filter convolution artifacts
-- pre-computing BRDF
-- completing IBL reflectance
+- `shader/brdf_lookup.vs` 추가
+
+```glsl
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 2) in vec2 aTexCoord;
+
+uniform mat4 transform;
+out vec2 texCoord;
+
+void main() {
+  gl_Position = transform * vec4(aPos, 1.0);
+  texCoord = aTexCoord;
+}
+```
+
+---
+
+## BRDF Lookup Table
+
+- `shader/brdf_lookup_fs` 추가
+
+```glsl
+#version 330 core
+out vec2 fragColor;
+in vec2 texCoord;
+
+const float PI = 3.14159265359;
+
+float RadicalInverse_VdC(uint bits) {
+  bits = (bits << 16u) | (bits >> 16u); 
+  bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u); 
+  bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u); 
+  bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u); 
+  bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+  return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+vec2 Hammersley(uint i, uint N) {
+  return vec2(float(i)/float(N), RadicalInverse_VdC(i));
+}
+
+vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+  float a = roughness*roughness;
+  float phi = 2.0 * PI * Xi.x;
+  float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+  float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+
+  // from spherical coordinates to cartesian coordinates
+  vec3 H;
+  H.x = cos(phi) * sinTheta;
+  H.y = sin(phi) * sinTheta;
+  H.z = cosTheta;
+
+  // from tangent-space vector to world-space sample vector
+  vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+  vec3 tangent = normalize(cross(up, N));
+  vec3 bitangent = cross(N, tangent);
+
+  vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+  return normalize(sampleVec);
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness) {
+  float a = roughness;
+  float k = (a * a) / 2.0;
+  float nom = NdotV;
+  float denom = NdotV * (1.0 - k) + k;
+  return nom / denom;
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+  float NdotV = max(dot(N, V), 0.0);
+  float NdotL = max(dot(N, L), 0.0);
+  float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+  float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+  return ggx1 * ggx2;
+}
+
+vec2 IntegrateBRDF(float NdotV, float roughness) {
+  vec3 V;
+  V.x = sqrt(1.0 - NdotV*NdotV);
+  V.y = 0.0;
+  V.z = NdotV;
+
+  float A = 0.0;
+  float B = 0.0;
+
+  vec3 N = vec3(0.0, 0.0, 1.0);
+
+  const uint SAMPLE_COUNT = 1024u;
+  for (uint i = 0u; i < SAMPLE_COUNT; ++i) {
+    vec2 Xi = Hammersley(i, SAMPLE_COUNT);
+    vec3 H = ImportanceSampleGGX(Xi, N, roughness);
+    vec3 L = normalize(2.0 * dot(V, H) * H - V);
+
+    float NdotL = max(L.z, 0.0);
+    float NdotH = max(H.z, 0.0);
+    float VdotH = max(dot(V, H), 0.0);
+
+    if(NdotL > 0.0) {
+      float G = GeometrySmith(N, V, L, roughness);
+      float G_Vis = (G * VdotH) / (NdotH * NdotV);
+      float Fc = pow(1.0 - VdotH, 5.0);
+      A += (1.0 - Fc) * G_Vis;
+      B += Fc * G_Vis;
+    }
+  }
+  A /= float(SAMPLE_COUNT);
+  B /= float(SAMPLE_COUNT);
+  return vec2(A, B);
+}
+
+void main() {
+  vec2 integratedBRDF = IntegrateBRDF(texCoord.x, texCoord.y);
+  fragColor = integratedBRDF;
+}
+```
+
+---
+
+## BRDF Lookup Table
+
+- `Context`에 lookup table 저장용 텍스처 및 프로그램 멤버 추가
+
+```cpp
+  TexturePtr m_brdfLookupMap;
+  ProgramUPtr m_brdfLookupProgram;
+```
+
+---
+
+## BRDF Lookup Table
+
+- `Context::Init()`에서 lookup table 생성
+
+```cpp
+  m_brdfLookupProgram = Program::Create(
+    "./shader/brdf_lookup.vs", "./shader/brdf_lookup.fs");
+  m_brdfLookupMap = Texture::Create(512, 512, GL_RG16F, GL_FLOAT);
+  auto lookupFramebuffer = Framebuffer::Create({ m_brdfLookupMap });
+  lookupFramebuffer->Bind();
+  glViewport(0, 0, 512, 512);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_brdfLookupProgram->Use();
+  m_brdfLookupProgram->SetUniform("transform",
+    glm::scale(glm::mat4(1.0f), glm::vec3(2.0f, -2.0f, 2.0f)));
+  m_plane->Draw(m_brdfLookupProgram.get());
+```
+
+---
+
+## BRDF Lookup Table
+
+- ImGui 윈도우 내에서 lookup table 생성 결과 확인
+
+```cpp
+  float w = ImGui::GetContentRegionAvailWidth();
+  ImGui::Image((ImTextureID)m_brdfLookupMap->Get(), ImVec2(w, w));
+```
+
+---
+
+## BRDF Lookup Table
+
+- 빌드 및 결과
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_brdf_lookup_table.png" width="80%"/>
+</div>
+
+---
+
+## IBL Reflectance
+
+- `shader/pbr.fs` 수정
+
+```glsl
+uniform samplerCube irradianceMap;
+uniform samplerCube preFilteredMap;
+uniform sampler2D brdfLookupTable;
+uniform int useIBL;
+
+// ... after direct lighting computation
+  vec3 ambient = vec3(0.03) * albedo * ao;
+  if (useIBL == 1) {
+    vec3 kS = FresnelSchlickRoughness(dotNV, F0, roughness);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;
+
+    vec3 irradiance = texture(irradianceMap, fragNormal).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    vec3 R = reflect(-viewDir, fragNormal);
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 preFilteredColor = textureLod(preFilteredMap, R,
+        roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 envBrdf = texture(brdfLookupTable, vec2(dotNV, roughness)).rg;
+    vec3 specular = preFilteredColor * (kS * envBrdf.x + envBrdf.y);
+
+    ambient = (kD * diffuse + specular) * ao;
+  }
+  vec3 color = ambient + outRadiance;
+```
+
+---
+
+## IBL Reflectance
+
+- `shader/skybox_hdr.fs`를 다시 원복
+- `Context::m_useDiffuseIrradiance`의 이름을 `m_useIBL`로 변경
+- `Context::Render()`에서 준비된 pre-filtered light map과
+  BRDF lookup table을 PBR 렌더링때 uniform으로 전달
+
+---
+
+## IBL Reflectance
+
+```cpp [6-16]
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  m_pbrProgram->Use();
+  m_pbrProgram->SetUniform("viewPos", m_cameraPos);
+  m_pbrProgram->SetUniform("material.ao", m_material.ao);
+  m_pbrProgram->SetUniform("material.albedo", m_material.albedo);
+  m_pbrProgram->SetUniform("useIBL", m_useIBL ? 1 : 0);
+  m_pbrProgram->SetUniform("irradianceMap", 0);
+  m_pbrProgram->SetUniform("preFilteredMap", 1);
+  m_pbrProgram->SetUniform("brdfLookupTable", 2);
+  glActiveTexture(GL_TEXTURE0);
+  m_diffuseIrradianceMap->Bind();
+  glActiveTexture(GL_TEXTURE1);
+  m_preFilteredMap->Bind();
+  glActiveTexture(GL_TEXTURE2);
+  m_brdfLookupMap->Bind();
+  glActiveTexture(GL_TEXTURE0);
+  for (size_t i = 0; i < m_lights.size(); i++) {
+    auto posName = fmt::format("lights[{}].position", i);
+    auto colorName = fmt::format("lights[{}].color", i);
+    m_pbrProgram->SetUniform(posName, m_lights[i].position);
+    m_pbrProgram->SetUniform(colorName, m_lights[i].color);
+  }
+  DrawScene(view, projection, m_pbrProgram.get());
+```
+
+---
+
+## IBL Reflectance
+
+- 빌드 및 결과
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_final_result.png" width="80%"/>
+</div>
+
+---
+
+## Additional Notes
+
+- Pre-computed IBL
+  - 실행때마다 계산할 필요가 없음
+    - 보통은 미리 계산해서 디스크에 저장해둠
+    - HDR 포맷으로 저장
+    - [cmftStudio](https://github.com/dariomanesku/cmftStudio)나
+      [IBLBaker](github.com/derkreature/IBLBaker) 같은 소프트웨어를
+      써도 무방
+- [Light probes](https://chetanjags.wordpress.com/2015/08/26/image-based-lighting/)
 
 ---
 
@@ -2608,8 +2870,7 @@ if(NdotL > 0.0) {
 
 - [**lifeisforu**의 그냥 그런 블로그](https://lifeisforu.tistory.com/category/Physically%20Based%20Rendering)
   - 매우 좋은 PBR 관련 설명글 (한국어)
-- [Sampling the GGX Distribution of Visible Normals](http://jcgt.org/published/0007/04/01/paper.pdf)
-  - GGX의 뜻이 적혀있는 논문
+
 ---
 
 ## Congratulation!

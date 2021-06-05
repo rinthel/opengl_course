@@ -1,8 +1,8 @@
 {
   "files": {
     "main.css": "/opengl_course/static/css/main.f07701cf.chunk.css",
-    "main.js": "/opengl_course/static/js/main.1dd9f0bc.chunk.js",
-    "main.js.map": "/opengl_course/static/js/main.1dd9f0bc.chunk.js.map",
+    "main.js": "/opengl_course/static/js/main.ce07741b.chunk.js",
+    "main.js.map": "/opengl_course/static/js/main.ce07741b.chunk.js.map",
     "runtime-main.js": "/opengl_course/static/js/runtime-main.beebc0e2.js",
     "runtime-main.js.map": "/opengl_course/static/js/runtime-main.beebc0e2.js.map",
     "static/css/2.7140d680.chunk.css": "/opengl_course/static/css/2.7140d680.chunk.css",
@@ -21,6 +21,6 @@
     "static/css/2.7140d680.chunk.css",
     "static/js/2.d7042420.chunk.js",
     "static/css/main.f07701cf.chunk.css",
-    "static/js/main.1dd9f0bc.chunk.js"
+    "static/js/main.ce07741b.chunk.js"
   ]
 }
