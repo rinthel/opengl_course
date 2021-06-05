@@ -2853,6 +2853,16 @@ uniform int useIBL;
 
 ---
 
+## IBL Reflectance
+
+- [Cerberus by A. Maximov](artisaverb.info/PBT.html)
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_final_result_gun.png" width="100%"/>
+</div>
+
+---
+
 ## Additional Notes
 
 - Pre-computed IBL
