@@ -2853,12 +2853,24 @@ uniform int useIBL;
 
 ---
 
+## Additional Notes
+
+- Pre-computed IBL
+  - 실행때마다 계산할 필요가 없음
+    - 보통은 미리 계산해서 디스크에 저장해둠
+    - HDR 포맷으로 저장
+    - [cmftStudio](https://github.com/dariomanesku/cmftStudio)나
+      [IBLBaker](github.com/derkreature/IBLBaker) 같은 소프트웨어를
+      써도 무방
+- [Light probes](https://chetanjags.wordpress.com/2015/08/26/image-based-lighting/)
+
+---
+
 ## Reference
 
 - [**lifeisforu**의 그냥 그런 블로그](https://lifeisforu.tistory.com/category/Physically%20Based%20Rendering)
   - 매우 좋은 PBR 관련 설명글 (한국어)
-- [Sampling the GGX Distribution of Visible Normals](http://jcgt.org/published/0007/04/01/paper.pdf)
-  - GGX의 뜻이 적혀있는 논문
+
 ---
 
 ## Congratulation!

@@ -51,9 +51,6 @@ function Home() {
         <li><Link to="12_advanced_feature_02">12. Advanced Feature Part. 2</Link></li>
         <li><Link to="13_advanced_lighting_01">13. Advanced Lighting Part. 1</Link></li>
         <li><Link to="14_advanced_lighting_02">14. Advanced Lighting Part. 2</Link></li>
-      </ul>
-      <h4>on writing</h4>
-      <ul>
         <li><Link to="15_physics_based_rendering">15. Physics-Based Rendering</Link></li>
       </ul>
       <h3>문의</h3>
