@@ -2277,13 +2277,37 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
 
 ## Specular IBL
 
-- Pre-filtered light map
+- Pre-filtered environment map
   - Mipmap 형태로 roughness에 따라 계산을 달리하여 저장
   - Monte-Carlo integration 방식의 계산
 
 ---
 
-## Prefiltered Light map
+## Prefiltered map
+
+- Roughness 값에 따라 달리 계산하는 이유
+  - Specular의 경우 roughness에 따라 반사되는 방향이 분산되기 떄문 (Specular lobe)
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_prefiltered_light_roughness.png" width="80%"/>
+</div>
+
+---
+
+## Prefiltered map
+
+- [Monte-Carlo integration](https://en.wikipedia.org/wiki/Monte_Carlo_method)
+  - 랜덤한 샘플 수집을 이용한 통계적인 적분 계산 기법
+  - Quasi-Monte Carlo integration
+    - 좀 더 빠른 수렴을 위해 low-discrepancy sequence를 사용
+
+<div>
+<img src="/opengl_course/note/images/15_pbr_low_discrepancy_sequence.png" width="40%"/>
+</div>
+
+---
+
+## Prefiltered map
 
 - `CubeTexture` 클래스에 mipmap 생성 기능 추가
 
@@ -2304,7 +2328,7 @@ void CubeTexture::GenerateMipmap() const {
 
 ---
 
-## Prefiltered Light map
+## Prefiltered map
 
 - `CubeFramebuffer` 클래스에 mipmap 레벨 설정 기능 추가
 
@@ -2340,7 +2364,7 @@ void CubeTexture::GenerateMipmap() const {
 
 ---
 
-## Prefiltered Light map
+## Prefiltered map
 
 - `shader/prefiltered_light.fs` 추가
 
@@ -2415,9 +2439,9 @@ void main() {
 
 ---
 
-## Prefiltered Light map
+## Prefiltered map
 
-- `Context` 클래스에 prefiltered light map을 위한 프로그램 및 텍스처 멤버 추가
+- `Context` 클래스에 prefiltered map을 위한 프로그램 및 텍스처 멤버 추가
 
 ``` cpp [7-8]
   TextureUPtr m_hdrMap;
@@ -2432,9 +2456,9 @@ void main() {
 
 ---
 
-## Prefiltered Light map
+## Prefiltered map
 
-- `Context::Init()`에서 prefiltered light map 계산
+- `Context::Init()`에서 prefiltered map 계산
 
 ```cpp
   const uint32_t maxMipLevels = 5;
@@ -2467,7 +2491,7 @@ void main() {
 
 ---
 
-## Prefiltered Light Map
+## Prefiltered Map
 
 - `shader/skybox_hdr.fs`를 임시 수정
   - 모든 mip level의 결과를 관찰하기 위함
@@ -2483,7 +2507,7 @@ void main() {
 
 ---
 
-## Prefiltered Light Map
+## Prefiltered Map
 
 - `Context::Render()`의 skybox 그리는 코드 임시 수정
 
@@ -2502,7 +2526,7 @@ void main() {
 
 ---
 
-## Prefiltered Light Map
+## Prefiltered Map
 
 - 빌드 및 결과
   - material.roughness 값을 바꾸면서 결과 관찰
@@ -2515,7 +2539,7 @@ void main() {
 
 ---
 
-## Prefiltered Light Map
+## Prefiltered Map
 
 - 경계선 없애기
   - `Context::Init()`에서 `GL_TEXTURE_CUBE_MAP_SEAMLESS` 활성화
@@ -2530,7 +2554,7 @@ bool Context::Init() {
 
 ---
 
-## Prefiltered Light Map
+## Prefiltered Map
 
 - 점 패턴 없애기
   - roughness에 따라 mipmap으로부터 샘플링
@@ -2565,7 +2589,7 @@ if(NdotL > 0.0) {
 
 ---
 
-## Prefiltered Light Map
+## Prefiltered Map
 
 - 점 패턴 없애기
   - `Context::Init()`에서 HDR cube map 생성 후 mipmap 생성
@@ -2584,10 +2608,10 @@ if(NdotL > 0.0) {
 
 ---
 
-## Prefiltered Light Map
+## Prefiltered Map
 
 - 빌드 및 결과
-  - 경계선이 사라지고 점 패턴이 사라진 부드러운 prefiltered light map
+  - 경계선이 사라지고 점 패턴이 사라진 부드러운 prefiltered map
 
 <div>
 <img src="/opengl_course/note/images/15_pbr_prefiltered_light_seamless.png" width="60%"/>
@@ -2808,7 +2832,7 @@ uniform int useIBL;
 
 - `shader/skybox_hdr.fs`를 다시 원복
 - `Context::m_useDiffuseIrradiance`의 이름을 `m_useIBL`로 변경
-- `Context::Render()`에서 준비된 pre-filtered light map과
+- `Context::Render()`에서 준비된 pre-filtered environment map과
   BRDF lookup table을 PBR 렌더링때 uniform으로 전달
 
 ---
