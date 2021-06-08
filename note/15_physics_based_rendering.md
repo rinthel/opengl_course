@@ -2879,7 +2879,7 @@ uniform int useIBL;
 
 ## IBL Reflectance
 
-- [Cerberus by A. Maximov](artisaverb.info/PBT.html)
+- [Cerberus by A. Maximov](http://artisaverb.info/PBT.html)
 
 <div>
 <img src="/opengl_course/note/images/15_pbr_final_result_gun.png" width="100%"/>
@@ -2894,7 +2894,7 @@ uniform int useIBL;
     - 보통은 미리 계산해서 디스크에 저장해둠
     - HDR 포맷으로 저장
     - [cmftStudio](https://github.com/dariomanesku/cmftStudio)나
-      [IBLBaker](github.com/derkreature/IBLBaker) 같은 소프트웨어를
+      [IBLBaker](https://github.com/derkreature/IBLBaker) 같은 소프트웨어를
       써도 무방
 - [Light probes](https://chetanjags.wordpress.com/2015/08/26/image-based-lighting/)
 
