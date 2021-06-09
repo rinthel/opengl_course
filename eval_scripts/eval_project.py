@@ -106,8 +106,8 @@ else:
             extract_files = list(Path(target_dir).rglob("*.[tT][xX][tT]"))
             for extract_file in extract_files:
                 rootpath, filename = os.path.split(extract_file)
-                if filename == 'CMakeLists.txt':
-                    repo["root"] = rootpath
+                if filename.lower() == 'cmakelists.txt':
+                    row["root"] = rootpath
             
         except Exception as e:
             print("cannot process:", filename)
@@ -154,11 +154,12 @@ for index, repo in enumerate(scorelist):
         exepath = os.path.join(".", "build", "Debug", exename)
         
         # test code
-        os.system("{} 0.6 0.5 32".format(exepath))
-        os.system("{} 0.8 0.4 32 45 135".format(exepath))
-        os.system("{} 0.8 0.7 32 0 270".format(exepath))
-        os.system("{} 0.5 0.25 64 0 360 0 1 0".format(exepath))
-        os.system("{} 0.6 0.3 64 120 240 1 0.5 0".format(exepath))
+        os.system("{}".format(exepath))
+        # os.system("{} 0.6 0.5 32".format(exepath))
+        # os.system("{} 0.8 0.4 32 45 135".format(exepath))
+        # os.system("{} 0.8 0.7 32 0 270".format(exepath))
+        # os.system("{} 0.5 0.25 64 0 360 0 1 0".format(exepath))
+        # os.system("{} 0.6 0.3 64 120 240 1 0.5 0".format(exepath))
     except Exception as e:
         print("error occurred:", e)
     finally:

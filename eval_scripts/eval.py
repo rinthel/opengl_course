@@ -135,8 +135,10 @@ for index, repo in enumerate(repolist):
     os.makedirs(basedir, exist_ok=True)
     os.chdir(basedir)
     try:
-        os.system("git clone {} {}".format(f"-b {tag_name}" if tag_name else "", github_url))
+        os.system("git clone {}".format(github_url))
         os.chdir(repo["github_repo"])
+        if tag_name:
+            os.system("git checkout {}".format(tag_name))
         os.system("cmake . -Bbuild")
         os.system("cmake --build build --config Debug -- /m:12")
         # find executabe file
