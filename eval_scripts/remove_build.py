@@ -9,7 +9,7 @@ from pathlib import Path
 
 # find CMakeLists.txt root directory
 dirname = sys.argv[1]
-output_dirname = dirname + "_result"
+output_dirname = dirname
 extract_dirs = list(Path(output_dirname).rglob("build"))
 build_dirs = []
 for extract_dir in extract_dirs:
