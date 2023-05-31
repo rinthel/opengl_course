@@ -1,18 +1,18 @@
 {
   "files": {
-    "main.css": "/opengl_course/static/css/main.b20601d5.css",
-    "main.js": "/opengl_course/static/js/main.4bd4c690.js",
-    "static/js/377.490baa4e.chunk.js": "/opengl_course/static/js/377.490baa4e.chunk.js",
+    "main.css": "/opengl_course/static/css/main.69720e8c.css",
+    "main.js": "/opengl_course/static/js/main.80860f2a.js",
+    "static/js/377.d24832fc.chunk.js": "/opengl_course/static/js/377.d24832fc.chunk.js",
     "static/media/league-gothic.ttf": "/opengl_course/static/media/league-gothic.6ae9138268fe16d7ac7a.ttf",
     "static/media/league-gothic.woff": "/opengl_course/static/media/league-gothic.080eee2aba44573fce6d.woff",
     "static/media/league-gothic.eot": "/opengl_course/static/media/league-gothic.12baac5d377da4eb8880.eot",
     "index.html": "/opengl_course/index.html",
-    "main.b20601d5.css.map": "/opengl_course/static/css/main.b20601d5.css.map",
-    "main.4bd4c690.js.map": "/opengl_course/static/js/main.4bd4c690.js.map",
-    "377.490baa4e.chunk.js.map": "/opengl_course/static/js/377.490baa4e.chunk.js.map"
+    "main.69720e8c.css.map": "/opengl_course/static/css/main.69720e8c.css.map",
+    "main.80860f2a.js.map": "/opengl_course/static/js/main.80860f2a.js.map",
+    "377.d24832fc.chunk.js.map": "/opengl_course/static/js/377.d24832fc.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.b20601d5.css",
-    "static/js/main.4bd4c690.js"
+    "static/css/main.69720e8c.css",
+    "static/js/main.80860f2a.js"
   ]
 }

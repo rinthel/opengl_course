@@ -5,15 +5,21 @@ object-assign
 */
 
 /*!
+ * The reveal.js markdown plugin. Handles parsing of
+ * markdown inside of presentations as well as loading
+ * of external markdown documents.
+ */
+
+/*!
  * reveal.js plugin that adds syntax highlight support.
  */
 
 /*!
-* reveal.js 4.3.1
+* reveal.js 4.5.0
 * https://revealjs.com
 * MIT licensed
 *
-* Copyright (C) 2011-2022 Hakim El Hattab, https://hakim.se
+* Copyright (C) 2011-2023 Hakim El Hattab, https://hakim.se
 */
 
 /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */
