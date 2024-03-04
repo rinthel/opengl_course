@@ -25,6 +25,7 @@ function Home() {
       </p>
       <h3>관련 링크</h3>
       <ul>
+        <li><a href="https://www.youtube.com/playlist?list=PLvNHCGtd4kh_cYLKMP_E-jwF3YKpDP4hf">YouTube 강의</a></li>
         <li><a href="https://github.com/rinthel/opengl_course">Github 저장소</a></li>
       </ul>
       <h3>참고 문헌</h3>

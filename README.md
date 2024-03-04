@@ -2,6 +2,8 @@
 
 ## Introduction
 
+- [Youtube 강의](https://www.youtube.com/playlist?list=PLvNHCGtd4kh_cYLKMP_E-jwF3YKpDP4hf)
+- [슬라이드 페이지](https://rinthel.github.io/opengl_course/)
 - 강원대학교 2021년 1학기 컴퓨터 그래픽스 수업을 위한 저장소입니다
 - 수업을 위한 슬라이드 노트 및 예제 코드를 저장하고 있습니다
 
