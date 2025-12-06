@@ -121,8 +121,23 @@ ExternalProject_Add(
     TEST_COMMAND ""
     )
 set(DEP_LIST ${DEP_LIST} dep_assimp)
+# determine MSVC vcXXX suffix robustly
+set(_ASSIMP_VC_SUFFIX "vc142")  # safe default
+if(MSVC)
+    # VS 2026 or newer
+    if(MSVC_VERSION GREATER_EQUAL 1950)
+      # 원래는 vc145 여야 하지만 아직 assimp v5.0.1 기준으로는 assimp-vc143-mt<d>.lib 으로 파일이 생성되어서...
+      set(_ASSIMP_VC_SUFFIX "vc143")
+    # VS 2022
+    elseif(MSVC_VERSION GREATER_EQUAL 1930)
+      set(_ASSIMP_VC_SUFFIX "vc143")
+    # VS 2019
+    elseif(MSVC_VERSION GREATER_EQUAL 1920)
+      set(_ASSIMP_VC_SUFFIX "vc142")
+    endif()
+endif()
 set(DEP_LIBS ${DEP_LIBS}
-    assimp-vc142-mt$<$<CONFIG:Debug>:d>
+    "assimp-${_ASSIMP_VC_SUFFIX}-mt$<$<CONFIG:Debug>:d>"
     zlibstatic$<$<CONFIG:Debug>:d>
     IrrXML$<$<CONFIG:Debug>:d>
     )
