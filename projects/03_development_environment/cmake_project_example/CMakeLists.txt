@@ -25,3 +25,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 
 # Dependency들이 먼저 build 될 수 있게 관계 설정
 add_dependencies(${PROJECT_NAME} ${DEP_LIST})
+
+if (MSVC)
+  target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
+endif()
