@@ -39,5 +39,5 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 add_dependencies(${PROJECT_NAME} ${DEP_LIST})
 
 if (MSVC)
-    target_compile_options(${PROJECT_NAME} PUBLIC /wd4819)
+    target_compile_options(${PROJECT_NAME} PUBLIC /wd4819 /utf-8)
 endif()

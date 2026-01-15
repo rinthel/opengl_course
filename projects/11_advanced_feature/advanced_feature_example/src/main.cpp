@@ -85,7 +85,7 @@ int main(int argc, const char** argv) {
         glfwTerminate();
         return -1;
     }
-    auto glVersion = glGetString(GL_VERSION);
+    auto glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
     SPDLOG_INFO("OpenGL context version: {}", glVersion);
 
     auto imguiContext = ImGui::CreateContext();
